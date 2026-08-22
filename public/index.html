@@ -182,11 +182,15 @@
   <div class="lag-box" id="lagBox" style="display:none;"></div>
 
   <div class="chart-box" id="chartBox" style="display:none;">
-    <div class="chart-title">LİKİDİTE KATMANLARI · MİLYAR $</div>
+    <div class="chart-title" id="chartTitle">BİLEŞİK Z-SKOR · ZAMAN İÇİNDE</div>
+    <div class="rng-btns" id="modeBtns" style="margin-bottom:10px;">
+      <button class="rbtn active" data-m="score" onclick="setMode('score')">Bileşik z-skor</button>
+      <button class="rbtn" data-m="liq" onclick="setMode('liq')">Likidite ($)</button>
+    </div>
     <div class="chart-read" id="chartRead">Grafiğe dokunup kaydır — o tarihteki değerleri gösterir.</div>
     <canvas id="chartCv"></canvas>
     <div class="lay-btns" id="layBtns"></div>
-    <div class="rng-btns">
+    <div class="rng-btns" id="rngBtns">
       <button class="rbtn" data-r="52" onclick="setRange(52)">1 yıl</button>
       <button class="rbtn active" data-r="156" onclick="setRange(156)">3 yıl</button>
       <button class="rbtn" data-r="260" onclick="setRange(260)">5 yıl</button>
@@ -400,23 +404,111 @@ function yoyZ(values, lag, offset){
   return {z:(ch[idx]-m)/sd, chg:ch[idx]};
 }
 
-// ================= KATMANLI GRAFIK =================
+// ================= GRAFIK =================
+// Milyar dolar -> trilyon dolar bicimi (5792 -> "5,79")
+function fmtT(v){
+  return (v/1000).toLocaleString('tr-TR',{minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function fmtZ(v){
+  return (v>=0?'+':'') + v.toFixed(2);
+}
+
 var CHART = {
-  data: null,
+  mode: 'score',
+  liq: null,    // {d, net, walcl, tga, rrp}   -> milyar $
+  score: null,  // {d, comp, us, ecb, boj, chn} -> z-skor
   range: 156,
   hoverIdx: null,
-  series: [
+  liqSeries: [
     {k:'net',   n:'Net likidite',  c:'#c9a15c', on:true},
     {k:'walcl', n:'Fed bilançosu', c:'#5b8def', on:false},
     {k:'tga',   n:'TGA',           c:'#d6584a', on:false},
     {k:'rrp',   n:'Ters repo',     c:'#9b6bd6', on:false}
+  ],
+  scoreSeries: [
+    {k:'comp', n:'Bileşik skor', c:'#c9a15c', on:true},
+    {k:'us',   n:'ABD',          c:'#5b8def', on:false},
+    {k:'ecb',  n:'ECB',          c:'#4caf6d', on:false},
+    {k:'boj',  n:'BOJ',          c:'#d6584a', on:false},
+    {k:'chn',  n:'Çin',          c:'#9b6bd6', on:false}
   ]
 };
 
+function curData(){ return CHART.mode === 'score' ? CHART.score : CHART.liq; }
+function curSeries(){ return CHART.mode === 'score' ? CHART.scoreSeries : CHART.liqSeries; }
+function fmtV(v){ return CHART.mode === 'score' ? fmtZ(v) : fmtT(v); }
+
+// --- z-skor zaman serisi ---
+// arr: [{date, value}] ; lag: kac donem geriye bakilacak
+// Her nokta icin o ana kadarki gecmise gore standartlastirir (genisleyen pencere).
+function zSeries(arr, lag){
+  var ch = [], chD = [], out = [];
+  for(var i=lag;i<arr.length;i++){
+    ch.push(arr[i].value - arr[i-lag].value);
+    chD.push(arr[i].date);
+  }
+  for(var i=0;i<ch.length;i++){
+    if(i+1 < 10) continue;
+    var m = 0, k;
+    for(k=0;k<=i;k++) m += ch[k];
+    m /= (i+1);
+    var sd = 0;
+    for(k=0;k<=i;k++) sd += Math.pow(ch[k]-m,2);
+    sd = Math.sqrt(sd/(i+1));
+    if(sd === 0) continue;
+    out.push({date:chD[i], z:(ch[i]-m)/sd});
+  }
+  return out;
+}
+
+// z serisini haftalik tarih izgarasina tasi (son bilinen deger tasinir)
+function alignZ(dates, zs){
+  var out = [], j = 0, last = null;
+  if(!zs) { for(var i=0;i<dates.length;i++) out.push(null); return out; }
+  for(var i=0;i<dates.length;i++){
+    while(j < zs.length && zs[j].date <= dates[i]){ last = zs[j].z; j++; }
+    out.push(last);
+  }
+  return out;
+}
+
+function buildScoreData(dates, parts){
+  var cols = {};
+  for(var key in parts) cols[key] = alignZ(dates, parts[key]);
+  var comp = [];
+  for(var i=0;i<dates.length;i++){
+    var sum = 0, n = 0;
+    for(var key in cols){
+      var v = cols[key][i];
+      if(v != null){ sum += v; n++; }
+    }
+    comp.push(n ? sum/n : null);
+  }
+  return {
+    d: dates, comp: comp,
+    us: cols.us || [], ecb: cols.ecb || [],
+    boj: cols.boj || [], chn: cols.chn || []
+  };
+}
+
+function setMode(m){
+  CHART.mode = m;
+  CHART.hoverIdx = null;
+  var bs = document.querySelectorAll('#modeBtns .rbtn');
+  for(var i=0;i<bs.length;i++){
+    bs[i].className = 'rbtn' + (bs[i].getAttribute('data-m')===m ? ' active' : '');
+  }
+  document.getElementById('chartTitle').textContent =
+    m === 'score' ? 'BİLEŞİK Z-SKOR · ZAMAN İÇİNDE' : 'LİKİDİTE KATMANLARI · TRİLYON $';
+  buildLayerBtns();
+  drawChart();
+  chartReadout();
+}
+
 function buildLayerBtns(){
-  var h = '';
-  for(var i=0;i<CHART.series.length;i++){
-    var s = CHART.series[i];
+  var ss = curSeries(), h = '';
+  for(var i=0;i<ss.length;i++){
+    var s = ss[i];
     h += '<button class="lbtn' + (s.on?' on':'') + '" style="color:' + s.c + '" ' +
          'onclick="toggleLayer(' + i + ')"><span class="dot"></span>' +
          '<span style="color:var(--text);">' + s.n + '</span></button>';
@@ -425,25 +517,28 @@ function buildLayerBtns(){
 }
 
 function toggleLayer(i){
-  var on = CHART.series.filter(function(s){return s.on;}).length;
-  if(CHART.series[i].on && on === 1) return; // en az bir katman acik kalsin
-  CHART.series[i].on = !CHART.series[i].on;
+  var ss = curSeries();
+  var on = ss.filter(function(s){return s.on;}).length;
+  if(ss[i].on && on === 1) return; // en az bir katman acik kalsin
+  ss[i].on = !ss[i].on;
   buildLayerBtns();
   drawChart();
+  chartReadout();
 }
 
 function setRange(r){
   CHART.range = r;
   CHART.hoverIdx = null;
-  var bs = document.querySelectorAll('.rbtn');
+  var bs = document.querySelectorAll('#rngBtns .rbtn');
   for(var i=0;i<bs.length;i++){
     bs[i].className = 'rbtn' + (parseInt(bs[i].getAttribute('data-r'))===r ? ' active' : '');
   }
   drawChart();
+  chartReadout();
 }
 
 function chartSlice(){
-  var d = CHART.data;
+  var d = curData();
   if(!d) return null;
   var n = d.d.length;
   var start = (CHART.range > 0 && CHART.range < n) ? n - CHART.range : 0;
@@ -451,13 +546,14 @@ function chartSlice(){
 }
 
 function drawChart(){
-  var d = CHART.data;
+  var d = curData();
   if(!d) return;
   var cv = document.getElementById('chartCv');
   var sl = chartSlice();
+  if(!sl || sl.len < 2) return;
   var dpr = window.devicePixelRatio || 1;
   var W = cv.clientWidth, H = cv.clientHeight;
-  if(!W){ return; }
+  if(!W) return;
   cv.width = W*dpr; cv.height = H*dpr;
   var g = cv.getContext('2d');
   g.setTransform(dpr,0,0,dpr,0,0);
@@ -466,22 +562,26 @@ function drawChart(){
   var PL = 6, PR = 54, PT = 10, PB = 20;
   var cw = W - PL - PR, chh = H - PT - PB;
 
-  var active = CHART.series.filter(function(s){return s.on;});
+  var active = curSeries().filter(function(s){return s.on;});
   var lo = Infinity, hi = -Infinity;
   for(var a=0;a<active.length;a++){
-    var arr = d[active[a].k];
+    var arr = d[active[a].k] || [];
     for(var i=sl.start;i<arr.length;i++){
-      if(arr[i] < lo) lo = arr[i];
-      if(arr[i] > hi) hi = arr[i];
+      var v = arr[i];
+      if(v == null) continue;
+      if(v < lo) lo = v;
+      if(v > hi) hi = v;
     }
   }
-  if(!isFinite(lo) || hi === lo){ return; }
+  if(!isFinite(lo) || hi === lo) return;
   var pad = (hi-lo)*0.08; lo -= pad; hi += pad;
+  // skor modunda sifir cizgisi her zaman gorunsun
+  if(CHART.mode === 'score'){ if(lo > -0.2) lo = -0.2; if(hi < 0.2) hi = 0.2; }
 
   var X = function(i){ return PL + (i - sl.start)/(sl.len-1)*cw; };
   var Y = function(v){ return PT + (hi - v)/(hi - lo)*chh; };
 
-  // yatay izgara + sag eksen etiketleri
+  // yatay izgara + sag eksen
   g.font = '10px JetBrains Mono, monospace';
   g.textAlign = 'left'; g.textBaseline = 'middle';
   for(var k=0;k<=4;k++){
@@ -489,13 +589,19 @@ function drawChart(){
     g.strokeStyle = '#252b33'; g.lineWidth = 1;
     g.beginPath(); g.moveTo(PL, py+0.5); g.lineTo(PL+cw, py+0.5); g.stroke();
     g.fillStyle = '#8a9099';
-    g.fillText(Math.round(vy).toLocaleString('tr-TR'), PL+cw+7, py);
+    g.fillText(fmtV(vy), PL+cw+7, py);
+  }
+
+  // sifir cizgisi (skor modu)
+  if(CHART.mode === 'score' && lo < 0 && hi > 0){
+    var zy = Y(0);
+    g.strokeStyle = '#4a525d'; g.lineWidth = 1.2;
+    g.beginPath(); g.moveTo(PL, zy+0.5); g.lineTo(PL+cw, zy+0.5); g.stroke();
   }
 
   // yil etiketleri
   g.textAlign = 'center'; g.textBaseline = 'top';
-  var lastYear = '';
-  var minGap = cw/5, lastX = -1e9;
+  var lastYear = '', minGap = cw/5, lastX = -1e9;
   for(var i=sl.start;i<d.d.length;i++){
     var yr = d.d[i].slice(0,4);
     if(yr !== lastYear){
@@ -511,15 +617,19 @@ function drawChart(){
     }
   }
 
-  // seriler
+  // seriler (bosluklari atlar)
   for(var a=0;a<active.length;a++){
-    var s = active[a], arr = d[s.k];
-    g.strokeStyle = s.c; g.lineWidth = s.k==='net' ? 2.1 : 1.5;
+    var s = active[a], arr = d[s.k] || [];
+    g.strokeStyle = s.c;
+    g.lineWidth = (s.k==='net' || s.k==='comp') ? 2.1 : 1.5;
     g.lineJoin = 'round'; g.lineCap = 'round';
     g.beginPath();
+    var pen = false;
     for(var i=sl.start;i<arr.length;i++){
-      var px2 = X(i), py2 = Y(arr[i]);
-      if(i===sl.start) g.moveTo(px2,py2); else g.lineTo(px2,py2);
+      var v = arr[i];
+      if(v == null){ pen = false; continue; }
+      var px2 = X(i), py2 = Y(v);
+      if(!pen){ g.moveTo(px2,py2); pen = true; } else g.lineTo(px2,py2);
     }
     g.stroke();
   }
@@ -532,9 +642,10 @@ function drawChart(){
     g.beginPath(); g.moveTo(hx+0.5, PT); g.lineTo(hx+0.5, PT+chh); g.stroke();
     g.setLineDash([]);
     for(var a=0;a<active.length;a++){
-      var s2 = active[a];
+      var s2 = active[a], vv = (d[s2.k]||[])[CHART.hoverIdx];
+      if(vv == null) continue;
       g.fillStyle = s2.c;
-      g.beginPath(); g.arc(hx, Y(d[s2.k][CHART.hoverIdx]), 3.4, 0, Math.PI*2); g.fill();
+      g.beginPath(); g.arc(hx, Y(vv), 3.4, 0, Math.PI*2); g.fill();
       g.strokeStyle = '#1b1f26'; g.lineWidth = 1.4; g.stroke();
     }
   }
@@ -542,34 +653,35 @@ function drawChart(){
 
 function chartReadout(){
   var el = document.getElementById('chartRead');
-  var d = CHART.data;
-  if(!d) return;
-  if(CHART.hoverIdx == null){
-    var last = d.d.length-1;
-    var h0 = 'Son veri <b>' + d.d[last] + '</b> · ';
-    var act0 = CHART.series.filter(function(s){return s.on;});
-    h0 += act0.map(function(s){
+  var d = curData();
+  if(!d || !el) return;
+  var i = CHART.hoverIdx;
+  if(i == null){
+    i = d.d.length - 1;
+    // son gecerli noktayi bul
+    var act0 = curSeries().filter(function(s){return s.on;});
+    while(i > 0 && act0.every(function(s){ return (d[s.k]||[])[i] == null; })) i--;
+    el.innerHTML = 'Son veri <b>' + d.d[i] + '</b> · ' + act0.map(function(s){
+      var v = (d[s.k]||[])[i];
       return '<span style="color:'+s.c+'">●</span> ' + s.n + ' <b>' +
-        Math.round(d[s.k][last]).toLocaleString('tr-TR') + '</b>';
+        (v == null ? '—' : fmtV(v)) + '</b>';
     }).join(' · ');
-    el.innerHTML = h0;
     return;
   }
-  var i = CHART.hoverIdx;
-  var h = '<b>' + d.d[i] + '</b> · ';
-  h += CHART.series.filter(function(s){return s.on;}).map(function(s){
+  el.innerHTML = '<b>' + d.d[i] + '</b> · ' + curSeries().filter(function(s){return s.on;}).map(function(s){
+    var v = (d[s.k]||[])[i];
     return '<span style="color:'+s.c+'">●</span> ' + s.n + ' <b>' +
-      Math.round(d[s.k][i]).toLocaleString('tr-TR') + '</b>';
+      (v == null ? '—' : fmtV(v)) + '</b>';
   }).join(' · ');
-  el.innerHTML = h;
 }
 
 (function(){
   var cv = document.getElementById('chartCv');
   if(!cv) return;
   function pick(ev){
-    if(!CHART.data) return;
+    if(!curData()) return;
     var sl = chartSlice();
+    if(!sl) return;
     var r = cv.getBoundingClientRect();
     var cx = (ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left;
     var PL = 6, cw = r.width - PL - 54;
@@ -629,11 +741,10 @@ async function run(){
         {n:'Hazine hesabı (TGA)',   v:yoyZ(tgaB,PERIOD),   inv:true,  u:' milyar $'},
         {n:'Ters repo (RRP)',       v:yoyZ(rrpB,PERIOD),   inv:true,  u:' milyar $'}
       ]});
-    CHART.data = {d:dates, net:net, walcl:walclB, tga:tgaB, rrp:rrpB};
-    buildLayerBtns();
-    document.getElementById('chartBox').style.display = 'block';
-    drawChart();
-    chartReadout();
+    CHART.liq = {d:dates, net:net, walcl:walclB, tga:tgaB, rrp:rrpB};
+    var netArr = [];
+    for(var q=0;q<dates.length;q++) netArr.push({date:dates[q], value:net[q]});
+    var zParts = { us: zSeries(netArr, PERIOD) };
 
     // TGA ve RRP seviye konumu (son ~5 yil = 260 hafta)
     tgaLevel = levelPct(tgaB, 260);
@@ -649,7 +760,8 @@ async function run(){
       var ecbV = ecb.map(function(o){return o.value;});
       var e = yoyZ(ecbV, PERIOD);
       if(e){ parts.push({name:'ECB bilançosu', z:e.z, chg:e.chg/1000, unit:' milyar EUR'});
-             lagParts.push(yoyZ(ecbV, PERIOD, 10)); }
+             lagParts.push(yoyZ(ecbV, PERIOD, 10));
+             zParts.ecb = zSeries(ecb, PERIOD); }
     }catch(err){ console.warn(err); }
 
     setStatus('BOJ...');
@@ -658,7 +770,8 @@ async function run(){
       var bojV = boj.map(function(o){return o.value;});
       var j = yoyZ(bojV, monthlyLag());
       if(j){ parts.push({name:'BOJ bilançosu', z:j.z, chg:j.chg/10000, unit:' trilyon YEN'});
-             lagParts.push(yoyZ(bojV, monthlyLag(), 2)); }
+             lagParts.push(yoyZ(bojV, monthlyLag(), 2));
+             zParts.boj = zSeries(boj, monthlyLag()); }
     }catch(err){ console.warn(err); }
 
     setStatus('Çin…');
@@ -667,10 +780,17 @@ async function run(){
       var chnV = chn.map(function(o){return o.value;});
       var c = yoyZ(chnV, monthlyLag());
       if(c){ parts.push({name:'Çin rezervleri', z:c.z, chg:c.chg/1000, unit:' milyar $'});
-             lagParts.push(yoyZ(chnV, monthlyLag(), 2)); }
+             lagParts.push(yoyZ(chnV, monthlyLag(), 2));
+             zParts.chn = zSeries(chn, monthlyLag()); }
     }catch(err){ console.warn(err); }
 
     if(!parts.length) throw new Error('Hiçbir veri çekilemedi');
+
+    CHART.score = buildScoreData(dates, zParts);
+    document.getElementById('chartBox').style.display = 'block';
+    buildLayerBtns();
+    drawChart();
+    chartReadout();
 
     window.__usPct = usPct;
     var score = parts.reduce(function(a,p){return a+p.z;},0)/parts.length;
