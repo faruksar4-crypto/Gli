@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Küresel Likidite</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#12151a; --panel:#1b1f26; --line:#2c323c; --brass:#c9a15c;
+    --brass-dim:#8a7245; --green:#4caf6d; --red:#d6584a; --amber:#d9a441;
+    --text:#e8e6e1; --muted:#8a9099;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:radial-gradient(1000px 500px at 50% -10%, #1a2029 0%, var(--bg) 55%);
+    color:var(--text); font-family:'Inter',sans-serif; min-height:100vh;
+    padding:24px 16px 50px;
+  }
+  .wrap{max-width:440px;margin:0 auto;}
+  header{text-align:center;margin-bottom:20px;}
+  h1{font-family:'Oswald',sans-serif;font-weight:600;font-size:22px;margin:0;letter-spacing:0.5px;}
+  .sub{color:var(--muted);font-size:12.5px;margin-top:5px;}
+  .verdict-box{
+    background:var(--panel); border:1px solid var(--line); border-radius:16px;
+    padding:28px 20px; text-align:center; margin-bottom:14px;
+  }
+  .arrow{font-size:64px;line-height:1;margin-bottom:6px;}
+  .verdict{font-family:'Oswald',sans-serif;font-size:30px;font-weight:700;letter-spacing:1px;}
+  .verdict-sub{font-size:13.5px;color:var(--muted);margin-top:8px;line-height:1.5;}
+  .pos{color:var(--green);} .neg{color:var(--red);} .neu{color:var(--amber);}
+  .btn{
+    width:100%; background:linear-gradient(180deg,#d9b06b,var(--brass));
+    color:#1a1408; border:none; font-family:'Oswald',sans-serif; font-weight:600;
+    letter-spacing:1.2px; font-size:14px; text-transform:uppercase;
+    padding:15px; border-radius:10px; cursor:pointer;
+  }
+  .btn:disabled{opacity:0.5;}
+  .status{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);
+    text-align:center;margin-top:10px;min-height:15px;}
+  .status.err{color:var(--red);}
+  .fc-box{border-radius:14px;padding:20px 18px;margin-top:14px;text-align:center;
+    border:2px solid var(--line);background:var(--panel);}
+  .fc-box.up{border-color:var(--green);background:rgba(76,175,109,0.07);}
+  .fc-box.down{border-color:var(--red);background:rgba(214,88,74,0.07);}
+  .fc-box.flat{border-color:var(--amber);background:rgba(217,164,65,0.07);}
+  .fc-label{font-family:'Oswald',sans-serif;font-size:10.5px;letter-spacing:2px;
+    color:var(--muted);margin-bottom:10px;}
+  .fc-dir{font-family:'Oswald',sans-serif;font-size:26px;font-weight:700;letter-spacing:0.5px;}
+  .fc-sub{font-size:12.5px;color:var(--muted);margin-top:8px;line-height:1.5;}
+  .fc-conf{font-family:'JetBrains Mono',monospace;font-size:11px;margin-top:12px;
+    padding-top:10px;border-top:1px solid var(--line);color:var(--muted);}
+  .fc-logged{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--brass-dim);margin-top:8px;}
+  .period{margin-bottom:12px;}
+  .period-label{font-family:'Oswald',sans-serif;font-size:10.5px;letter-spacing:1.5px;
+    color:var(--muted);margin-bottom:7px;text-align:center;}
+  .period-btns{display:flex;gap:6px;}
+  .pbtn{flex:1;background:var(--panel);border:1px solid var(--line);color:var(--muted);
+    font-family:'JetBrains Mono',monospace;font-size:11.5px;padding:10px 4px;
+    border-radius:8px;cursor:pointer;}
+  .pbtn.active{background:#2a3038;border-color:var(--brass-dim);color:var(--brass);font-weight:700;}
+  .chart-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:14px 12px 12px;margin-top:14px;}
+  .chart-title{font-family:'Oswald',sans-serif;font-size:10.5px;letter-spacing:1.8px;
+    color:var(--brass);margin:0 4px 10px;}
+  .chart-read{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--muted);
+    margin:0 4px 8px;min-height:28px;line-height:1.5;}
+  .chart-read b{color:var(--text);font-weight:700;}
+  #chartCv{width:100%;height:230px;display:block;touch-action:pan-y;}
+  .lay-btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+  .lbtn{flex:1 1 46%;background:#0d0f13;border:1px solid var(--line);color:var(--muted);
+    font-family:'JetBrains Mono',monospace;font-size:11px;padding:9px 6px;border-radius:8px;
+    cursor:pointer;display:flex;align-items:center;gap:6px;justify-content:center;}
+  .lbtn .dot{width:9px;height:9px;border-radius:50%;background:currentColor;opacity:0.35;}
+  .lbtn.on{background:#22272f;border-color:var(--brass-dim);font-weight:700;}
+  .lbtn.on .dot{opacity:1;}
+  .rng-btns{display:flex;gap:6px;margin-top:8px;}
+  .rbtn{flex:1;background:#0d0f13;border:1px solid var(--line);color:var(--muted);
+    font-family:'JetBrains Mono',monospace;font-size:11px;padding:8px 4px;border-radius:8px;cursor:pointer;}
+  .rbtn.active{background:#2a3038;border-color:var(--brass-dim);color:var(--brass);font-weight:700;}
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  .fw-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:14px 16px;margin-top:14px;}
+  .fw-title{font-family:'Oswald',sans-serif;font-size:10.5px;letter-spacing:1.8px;
+    color:var(--brass);margin-bottom:12px;}
+  .fw-row{padding:10px 0 12px;border-bottom:1px solid var(--line);}
+  .fw-row:last-child{border-bottom:none;}
+  .fw-head{font-size:12.5px;display:flex;align-items:center;gap:6px;}
+  .fw-num{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--muted);}
+  .fw-bar{height:7px;background:#0d0f13;border-radius:4px;margin-top:8px;overflow:hidden;}
+  .fw-fill{height:100%;border-radius:4px;}
+  .fw-fill.pos{background:var(--green);}
+  .fw-fill.neg{background:var(--red);}
+  .fw-fill.neu{background:var(--amber);}
+  .fw-msg{font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.55;}
+  .fw-note{font-size:10.5px;color:var(--muted);margin-top:10px;line-height:1.5;
+    padding-top:10px;border-top:1px solid var(--line);}
+  .lag-box{background:var(--panel);border:1px solid var(--brass-dim);border-radius:12px;
+    padding:4px 16px;margin-top:14px;}
+  .lag-row{display:flex;justify-content:space-between;align-items:center;
+    padding:13px 0;border-bottom:1px solid var(--line);}
+  .lag-label{font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:1.5px;color:var(--brass);}
+  .lag-note{font-size:10.5px;color:var(--muted);margin-top:3px;}
+  .sub-item{padding-left:12px;border-left:2px solid var(--line);margin-left:2px;}
+  .list{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:6px 16px;margin-top:14px;}
+  .item{display:flex;justify-content:space-between;align-items:center;
+    padding:13px 0;border-bottom:1px solid var(--line);}
+  .item:last-child{border-bottom:none;}
+  .item-name{font-size:13.5px;}
+  .item-val{font-family:'JetBrains Mono',monospace;font-size:13.5px;font-weight:700;}
+  .item-note{font-size:10.5px;color:var(--muted);margin-top:2px;}
+  details{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    margin-top:14px;overflow:hidden;}
+  summary{padding:14px 16px;cursor:pointer;font-family:'Oswald',sans-serif;
+    font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);
+    list-style:none;}
+  summary::-webkit-details-marker{display:none;}
+  .body{padding:0 16px 16px;}
+  label{display:block;font-size:11px;color:var(--muted);margin:8px 0 5px;
+    font-family:'JetBrains Mono',monospace;}
+  input{width:100%;background:#0d0f13;border:1px solid var(--line);color:var(--text);
+    padding:10px 12px;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:13px;}
+  .btn2{width:100%;background:#252b33;border:1px solid var(--line);color:var(--text);
+    font-family:'Oswald',sans-serif;letter-spacing:1px;font-size:12.5px;text-transform:uppercase;
+    padding:12px;border-radius:8px;margin-top:10px;cursor:pointer;}
+  .note{font-size:11px;color:var(--muted);line-height:1.6;margin-top:10px;}
+  .foot{text-align:center;color:var(--muted);font-size:10.5px;margin-top:20px;
+    line-height:1.6;font-family:'JetBrains Mono',monospace;}
+  a{color:var(--brass-dim);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>KÜRESEL LİKİDİTE</h1>
+    <div class="sub">Artıyor mu, azalıyor mu?</div>
+  </header>
+
+  <div class="verdict-box">
+    <div class="arrow neu" id="arrow">—</div>
+    <div class="verdict neu" id="verdict">VERİ BEKLENİYOR</div>
+    <div class="verdict-sub" id="verdictSub">Aşağıdaki butona bas</div>
+  </div>
+
+  <div class="period">
+    <div class="period-label">ÖLÇÜM PERİYODU</div>
+    <div class="period-btns">
+      <button class="pbtn active" data-p="1" onclick="setPeriod(1)">1 hafta</button>
+      <button class="pbtn" data-p="4" onclick="setPeriod(4)">1 ay</button>
+      <button class="pbtn" data-p="13" onclick="setPeriod(13)">3 ay</button>
+      <button class="pbtn" data-p="52" onclick="setPeriod(52)">1 yıl</button>
+    </div>
+  </div>
+  <button class="btn" id="btn" onclick="run()">Güncelle</button>
+  <div class="status" id="status"></div>
+  <div class="fc-box" id="fcBox" style="display:none;">
+    <div class="fc-label">BTC TAHMİNİ · ÖNÜMÜZDEKİ 2-3 AY</div>
+    <div class="fc-dir" id="fcDir">—</div>
+    <div class="fc-sub" id="fcSub"></div>
+    <div class="fc-conf" id="fcConf"></div>
+    <div class="fc-logged" id="fcLogged"></div>
+  </div>
+
+  <div class="fw-box" id="fwBox" style="display:none;"></div>
+  <div class="lag-box" id="lagBox" style="display:none;"></div>
+
+  <div class="chart-box" id="chartBox" style="display:none;">
+    <div class="chart-title">LİKİDİTE KATMANLARI · MİLYAR $</div>
+    <div class="chart-read" id="chartRead">Grafiğe dokunup kaydır — o tarihteki değerleri gösterir.</div>
+    <canvas id="chartCv"></canvas>
+    <div class="lay-btns" id="layBtns"></div>
+    <div class="rng-btns">
+      <button class="rbtn" data-r="52" onclick="setRange(52)">1 yıl</button>
+      <button class="rbtn active" data-r="156" onclick="setRange(156)">3 yıl</button>
+      <button class="rbtn" data-r="260" onclick="setRange(260)">5 yıl</button>
+      <button class="rbtn" data-r="0" onclick="setRange(0)">Tümü</button>
+    </div>
+  </div>
+
+  <div class="list" id="list" style="display:none;"></div>
+
+  <details id="settings">
+    <summary>Ayarlar</summary>
+    <div class="body">
+      <label>FRED API Anahtarı</label>
+      <input type="password" id="key" placeholder="anahtarı yapıştır">
+      <button class="btn2" onclick="saveKey()">Kaydet</button>
+      <div class="note" id="keyNote">Bir kez girmen yeterli, tarayıcıda saklanır.</div>
+
+      <label>Proxy Adresi</label>
+      <input type="text" id="pxb" placeholder="https://... .workers.dev">
+      <button class="btn2" onclick="savePx()">Kaydet</button>
+      <div class="note" id="pxNote">Boş bırakırsan bu sitedeki <code>/api/proxy</code> kullanılır.
+        Ayrı bir Cloudflare Worker kurduysan adresini buraya yapıştır.</div>
+    </div>
+  </details>
+
+  <div class="foot">
+    Merkez bankası bilançolarının <b>yıllık değişimi</b> ölçülür,<br>
+    kendi geçmişine göre standartlaştırılıp ortalanır.<br>
+    <a href="./forward.html">İleriye dönük test →</a>
+  </div>
+</div>
+
+<script>
+// Proxy adresi: Ayarlar'dan girilirse onu kullan, yoksa ayni sunucudaki /api/proxy
+function proxyBase(){
+  try{
+    var v = (localStorage.getItem('proxy_base') || '').trim();
+    if(v) return v.replace(/\/+$/,'');
+  }catch(e){}
+  return '/api/proxy';
+}
+function px(url){ return proxyBase() + '?url=' + encodeURIComponent(url); }
+
+let apiKey = '';
+var PERIOD = 1; // hafta cinsinden olcum periyodu
+
+function setPeriod(p){
+  PERIOD = p;
+  var bs = document.querySelectorAll('.pbtn');
+  for(var i=0;i<bs.length;i++){
+    bs[i].className = 'pbtn' + (parseInt(bs[i].getAttribute('data-p'))===p ? ' active' : '');
+  }
+}
+function monthlyLag(){ return Math.max(1, Math.round(PERIOD/4.33)); }
+function periodAd(){
+  return PERIOD===1?'1 hafta':PERIOD===4?'1 ay':PERIOD===13?'3 ay':'1 yıl';
+}
+
+// ---- GECMIS KAYIT ----
+function histKey(){ return 'gli_hist_' + PERIOD; }
+
+function loadHist(){
+  try{
+    var raw = localStorage.getItem(histKey());
+    return raw ? JSON.parse(raw) : [];
+  }catch(e){ return []; }
+}
+
+function saveSnapshot(score, parts){
+  var hist = loadHist();
+  var today = new Date();
+  // Haftanin pazartesisini anahtar yap -> ayni hafta icinde tekrar guncellersen ustune yazar
+  var day = today.getDay();
+  var monday = new Date(today);
+  monday.setDate(today.getDate() - ((day + 6) % 7));
+  var key = monday.toISOString().slice(0,10);
+
+  var entry = {
+    d: key,
+    s: Math.round(score*1000)/1000,
+    p: parts.map(function(x){ return {n:x.name, z:Math.round(x.z*1000)/1000, c:Math.round(x.chg) }; })
+  };
+  var idx = -1;
+  for(var i=0;i<hist.length;i++){ if(hist[i].d === key){ idx = i; break; } }
+  if(idx >= 0) hist[idx] = entry; else hist.push(entry);
+  hist.sort(function(a,b){ return a.d < b.d ? -1 : 1; });
+  if(hist.length > 200) hist = hist.slice(-200);
+  try{ localStorage.setItem(histKey(), JSON.stringify(hist)); }catch(e){}
+  return hist;
+}
+
+function renderHist(){ /* arayüzden kaldırıldı, kayıt arka planda tutuluyor */ }
+
+// Tahmini otomatik olarak defterine yaz (BTC fiyatıyla birlikte)
+async function autoLogForecast(score, usPct){
+  try{
+    var res;
+    try{
+      res = await fetch('https://www.bitstamp.net/api/v2/ticker/btcusd/');
+      if(!res.ok) throw new Error('x');
+    }catch(e){
+      res = await fetch(px('https://www.bitstamp.net/api/v2/ticker/btcusd/'));
+    }
+    var j = await res.json();
+    var px = parseFloat(j.last);
+    if(!px) return;
+
+    var log = [];
+    try{ log = JSON.parse(localStorage.getItem('gli_forward_log') || '[]'); }catch(e){}
+    var today = new Date().toISOString().slice(0,10);
+    var found = false;
+    for(var i=0;i<log.length;i++){
+      if(log[i].d === today){ log[i].s = score; log[i].px = px;
+        if(usPct!=null) log[i].pct = Math.round(usPct*100)/100; found = true; }
+    }
+    if(!found){
+      var ent = {d:today, s:score, px:px};
+      if(usPct!=null) ent.pct = Math.round(usPct*100)/100;
+      log.push(ent);
+    }
+    log.sort(function(a,b){ return a.d < b.d ? -1 : 1; });
+    try{ localStorage.setItem('gli_forward_log', JSON.stringify(log)); }catch(e){}
+
+    var el = document.getElementById('fcLogged');
+    if(el) el.textContent = 'Bu tahmin deftere kaydedildi · BTC $' +
+      Math.round(px).toLocaleString('tr-TR');
+  }catch(e){ console.warn('tahmin kaydedilemedi', e); }
+}
+
+function exportHist(){
+  var hist = loadHist();
+  if(!hist.length){ alert('Kayıt yok'); return; }
+  var csv = 'tarih,skor\n' + hist.map(function(e){ return e.d + ',' + e.s; }).join('\n');
+  var a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'likidite-gecmis-' + PERIOD + 'h.csv';
+  a.click();
+}
+
+function clearHist(){
+  if(!confirm('Bu periyodun tüm kayıtları silinecek. Emin misin?')) return;
+  try{ localStorage.removeItem(histKey()); }catch(e){}
+  renderHist([]);
+}
+function getKey(){
+  if(apiKey) return apiKey;
+  try{ apiKey = localStorage.getItem('fred_api_key') || ''; }catch(e){}
+  return apiKey;
+}
+function saveKey(){
+  const v = document.getElementById('key').value.trim();
+  if(!v) return;
+  apiKey = v;
+  try{ localStorage.setItem('fred_api_key', v); }catch(e){}
+  document.getElementById('keyNote').textContent = 'Kaydedildi.';
+  document.getElementById('settings').open = false;
+}
+function setStatus(m, err){
+  const e = document.getElementById('status');
+  e.textContent = m; e.className = 'status' + (err?' err':'');
+}
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
+async function fred(id, limit){
+  const url = 'https://api.stlouisfed.org/fred/series/observations?series_id=' + id +
+    '&api_key=' + apiKey + '&file_type=json&sort_order=desc&limit=' + limit;
+  const res = await fetch(px(url));
+  if(!res.ok) throw new Error(id + ': HTTP ' + res.status);
+  const d = await res.json();
+  if(!d.observations) throw new Error(id + ': geçersiz yanıt (anahtarı kontrol et)');
+  await sleep(150);
+  return d.observations.filter(function(o){return o.value!=='.';})
+    .map(function(o){return {date:o.date, value:parseFloat(o.value)};}).reverse();
+}
+
+function valueAt(series, d){
+  var v = null;
+  for(var i=0;i<series.length;i++){
+    if(series[i].date <= d) v = series[i].value; else break;
+  }
+  return v;
+}
+
+// Bir serinin son degerinin kendi tarihsel araligindaki konumu (0-100 persentil)
+function levelPct(values, win){
+  if(values.length < 30) return null;
+  var slice = values.slice(-win);
+  var last = slice[slice.length-1];
+  var below = 0;
+  for(var i=0;i<slice.length;i++){ if(slice[i] < last) below++; }
+  return {
+    pct: Math.round(below/slice.length*100),
+    last: last,
+    min: Math.min.apply(null, slice),
+    max: Math.max.apply(null, slice)
+  };
+}
+
+// offset: kac donem geriye bakilacak (gecikme analizi icin)
+function yoyZ(values, lag, offset){
+  offset = offset || 0;
+  var ch = [];
+  for(var i=lag;i<values.length;i++) ch.push(values[i]-values[i-lag]);
+  if(ch.length < 10 + offset) return null;
+  var idx = ch.length - 1 - offset;
+  var hist = ch.slice(0, idx+1);
+  if(hist.length < 10) return null;
+  var m = hist.reduce(function(a,b){return a+b;},0)/hist.length;
+  var sd = Math.sqrt(hist.reduce(function(a,b){return a+Math.pow(b-m,2);},0)/hist.length);
+  if(sd === 0) return null;
+  return {z:(ch[idx]-m)/sd, chg:ch[idx]};
+}
+
+// ================= KATMANLI GRAFIK =================
+var CHART = {
+  data: null,
+  range: 156,
+  hoverIdx: null,
+  series: [
+    {k:'net',   n:'Net likidite',  c:'#c9a15c', on:true},
+    {k:'walcl', n:'Fed bilançosu', c:'#5b8def', on:false},
+    {k:'tga',   n:'TGA',           c:'#d6584a', on:false},
+    {k:'rrp',   n:'Ters repo',     c:'#9b6bd6', on:false}
+  ]
+};
+
+function buildLayerBtns(){
+  var h = '';
+  for(var i=0;i<CHART.series.length;i++){
+    var s = CHART.series[i];
+    h += '<button class="lbtn' + (s.on?' on':'') + '" style="color:' + s.c + '" ' +
+         'onclick="toggleLayer(' + i + ')"><span class="dot"></span>' +
+         '<span style="color:var(--text);">' + s.n + '</span></button>';
+  }
+  document.getElementById('layBtns').innerHTML = h;
+}
+
+function toggleLayer(i){
+  var on = CHART.series.filter(function(s){return s.on;}).length;
+  if(CHART.series[i].on && on === 1) return; // en az bir katman acik kalsin
+  CHART.series[i].on = !CHART.series[i].on;
+  buildLayerBtns();
+  drawChart();
+}
+
+function setRange(r){
+  CHART.range = r;
+  CHART.hoverIdx = null;
+  var bs = document.querySelectorAll('.rbtn');
+  for(var i=0;i<bs.length;i++){
+    bs[i].className = 'rbtn' + (parseInt(bs[i].getAttribute('data-r'))===r ? ' active' : '');
+  }
+  drawChart();
+}
+
+function chartSlice(){
+  var d = CHART.data;
+  if(!d) return null;
+  var n = d.d.length;
+  var start = (CHART.range > 0 && CHART.range < n) ? n - CHART.range : 0;
+  return {start:start, len:n-start};
+}
+
+function drawChart(){
+  var d = CHART.data;
+  if(!d) return;
+  var cv = document.getElementById('chartCv');
+  var sl = chartSlice();
+  var dpr = window.devicePixelRatio || 1;
+  var W = cv.clientWidth, H = cv.clientHeight;
+  if(!W){ return; }
+  cv.width = W*dpr; cv.height = H*dpr;
+  var g = cv.getContext('2d');
+  g.setTransform(dpr,0,0,dpr,0,0);
+  g.clearRect(0,0,W,H);
+
+  var PL = 6, PR = 54, PT = 10, PB = 20;
+  var cw = W - PL - PR, chh = H - PT - PB;
+
+  var active = CHART.series.filter(function(s){return s.on;});
+  var lo = Infinity, hi = -Infinity;
+  for(var a=0;a<active.length;a++){
+    var arr = d[active[a].k];
+    for(var i=sl.start;i<arr.length;i++){
+      if(arr[i] < lo) lo = arr[i];
+      if(arr[i] > hi) hi = arr[i];
+    }
+  }
+  if(!isFinite(lo) || hi === lo){ return; }
+  var pad = (hi-lo)*0.08; lo -= pad; hi += pad;
+
+  var X = function(i){ return PL + (i - sl.start)/(sl.len-1)*cw; };
+  var Y = function(v){ return PT + (hi - v)/(hi - lo)*chh; };
+
+  // yatay izgara + sag eksen etiketleri
+  g.font = '10px JetBrains Mono, monospace';
+  g.textAlign = 'left'; g.textBaseline = 'middle';
+  for(var k=0;k<=4;k++){
+    var vy = lo + (hi-lo)*k/4, py = Y(vy);
+    g.strokeStyle = '#252b33'; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(PL, py+0.5); g.lineTo(PL+cw, py+0.5); g.stroke();
+    g.fillStyle = '#8a9099';
+    g.fillText(Math.round(vy).toLocaleString('tr-TR'), PL+cw+7, py);
+  }
+
+  // yil etiketleri
+  g.textAlign = 'center'; g.textBaseline = 'top';
+  var lastYear = '';
+  var minGap = cw/5, lastX = -1e9;
+  for(var i=sl.start;i<d.d.length;i++){
+    var yr = d.d[i].slice(0,4);
+    if(yr !== lastYear){
+      lastYear = yr;
+      var px = X(i);
+      if(px - lastX >= minGap && px < PL+cw-12){
+        g.fillStyle = '#6d747d';
+        g.fillText(yr, px, PT+chh+5);
+        g.strokeStyle = '#20252c';
+        g.beginPath(); g.moveTo(px+0.5, PT); g.lineTo(px+0.5, PT+chh); g.stroke();
+        lastX = px;
+      }
+    }
+  }
+
+  // seriler
+  for(var a=0;a<active.length;a++){
+    var s = active[a], arr = d[s.k];
+    g.strokeStyle = s.c; g.lineWidth = s.k==='net' ? 2.1 : 1.5;
+    g.lineJoin = 'round'; g.lineCap = 'round';
+    g.beginPath();
+    for(var i=sl.start;i<arr.length;i++){
+      var px2 = X(i), py2 = Y(arr[i]);
+      if(i===sl.start) g.moveTo(px2,py2); else g.lineTo(px2,py2);
+    }
+    g.stroke();
+  }
+
+  // crosshair
+  if(CHART.hoverIdx != null){
+    var hx = X(CHART.hoverIdx);
+    g.strokeStyle = '#8a9099'; g.lineWidth = 1;
+    g.setLineDash([3,3]);
+    g.beginPath(); g.moveTo(hx+0.5, PT); g.lineTo(hx+0.5, PT+chh); g.stroke();
+    g.setLineDash([]);
+    for(var a=0;a<active.length;a++){
+      var s2 = active[a];
+      g.fillStyle = s2.c;
+      g.beginPath(); g.arc(hx, Y(d[s2.k][CHART.hoverIdx]), 3.4, 0, Math.PI*2); g.fill();
+      g.strokeStyle = '#1b1f26'; g.lineWidth = 1.4; g.stroke();
+    }
+  }
+}
+
+function chartReadout(){
+  var el = document.getElementById('chartRead');
+  var d = CHART.data;
+  if(!d) return;
+  if(CHART.hoverIdx == null){
+    var last = d.d.length-1;
+    var h0 = 'Son veri <b>' + d.d[last] + '</b> · ';
+    var act0 = CHART.series.filter(function(s){return s.on;});
+    h0 += act0.map(function(s){
+      return '<span style="color:'+s.c+'">●</span> ' + s.n + ' <b>' +
+        Math.round(d[s.k][last]).toLocaleString('tr-TR') + '</b>';
+    }).join(' · ');
+    el.innerHTML = h0;
+    return;
+  }
+  var i = CHART.hoverIdx;
+  var h = '<b>' + d.d[i] + '</b> · ';
+  h += CHART.series.filter(function(s){return s.on;}).map(function(s){
+    return '<span style="color:'+s.c+'">●</span> ' + s.n + ' <b>' +
+      Math.round(d[s.k][i]).toLocaleString('tr-TR') + '</b>';
+  }).join(' · ');
+  el.innerHTML = h;
+}
+
+(function(){
+  var cv = document.getElementById('chartCv');
+  if(!cv) return;
+  function pick(ev){
+    if(!CHART.data) return;
+    var sl = chartSlice();
+    var r = cv.getBoundingClientRect();
+    var cx = (ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left;
+    var PL = 6, cw = r.width - PL - 54;
+    var frac = (cx - PL)/cw;
+    frac = Math.max(0, Math.min(1, frac));
+    CHART.hoverIdx = sl.start + Math.round(frac*(sl.len-1));
+    drawChart(); chartReadout();
+  }
+  function clear(){ CHART.hoverIdx = null; drawChart(); chartReadout(); }
+  cv.addEventListener('touchstart', pick, {passive:true});
+  cv.addEventListener('touchmove', pick, {passive:true});
+  cv.addEventListener('touchend', clear);
+  cv.addEventListener('mousemove', pick);
+  cv.addEventListener('mouseleave', clear);
+  var rt;
+  window.addEventListener('resize', function(){
+    clearTimeout(rt); rt = setTimeout(function(){ drawChart(); }, 120);
+  });
+})();
+// ===============================================
+
+async function run(){
+  var b = document.getElementById('btn');
+  b.disabled = true;
+  if(!getKey()){
+    setStatus('Önce Ayarlar bölümünden FRED anahtarını gir.', true);
+    document.getElementById('settings').open = true;
+    b.disabled = false; return;
+  }
+  var parts = [], lagParts = [];
+  var tgaLevel = null, rrpLevel = null;
+  try{
+    setStatus('ABD likiditesi…');
+    var walcl = await fred('WALCL', 400);
+    var tga   = await fred('WTREGEN', 400);
+    var rrp   = await fred('RRPONTSYD', 2600);
+    var net = [], walclB = [], tgaB = [], rrpB = [], dates = [];
+    for(var i=0;i<walcl.length;i++){
+      var t = valueAt(tga, walcl[i].date), r = valueAt(rrp, walcl[i].date);
+      if(t==null || r==null) continue;
+      dates.push(walcl[i].date);
+      walclB.push(walcl[i].value/1000);
+      tgaB.push(t/1000);
+      rrpB.push(r);
+      net.push(walcl[i].value/1000 - t/1000 - r);
+    }
+    var us = yoyZ(net, PERIOD);
+    // Beta modeli icin: likiditenin YUZDESEL degisimi
+    var usPct = null;
+    if(net.length > PERIOD){
+      var base = net[net.length-1-PERIOD];
+      if(base && Math.abs(base) > 100) usPct = (net[net.length-1]/base - 1)*100;
+    }
+    if(us) parts.push({name:'ABD net likidite', z:us.z, chg:us.chg, unit:' milyar $',
+      sub:[
+        {n:'Fed bilançosu (WALCL)', v:yoyZ(walclB,PERIOD), inv:false, u:' milyar $'},
+        {n:'Hazine hesabı (TGA)',   v:yoyZ(tgaB,PERIOD),   inv:true,  u:' milyar $'},
+        {n:'Ters repo (RRP)',       v:yoyZ(rrpB,PERIOD),   inv:true,  u:' milyar $'}
+      ]});
+    CHART.data = {d:dates, net:net, walcl:walclB, tga:tgaB, rrp:rrpB};
+    buildLayerBtns();
+    document.getElementById('chartBox').style.display = 'block';
+    drawChart();
+    chartReadout();
+
+    // TGA ve RRP seviye konumu (son ~5 yil = 260 hafta)
+    tgaLevel = levelPct(tgaB, 260);
+    rrpLevel = levelPct(rrpB, 260);
+
+    // ~10 hafta once ki skor (fiyata su an yansiyan)
+    var usLag = yoyZ(net, PERIOD, 10);
+    if(usLag) lagParts.push(usLag);
+
+    setStatus('ECB...');
+    try{
+      var ecb = await fred('ECBASSETSW', 400);
+      var ecbV = ecb.map(function(o){return o.value;});
+      var e = yoyZ(ecbV, PERIOD);
+      if(e){ parts.push({name:'ECB bilançosu', z:e.z, chg:e.chg/1000, unit:' milyar EUR'});
+             lagParts.push(yoyZ(ecbV, PERIOD, 10)); }
+    }catch(err){ console.warn(err); }
+
+    setStatus('BOJ...');
+    try{
+      var boj = await fred('JPNASSETS', 120);
+      var bojV = boj.map(function(o){return o.value;});
+      var j = yoyZ(bojV, monthlyLag());
+      if(j){ parts.push({name:'BOJ bilançosu', z:j.z, chg:j.chg/10000, unit:' trilyon YEN'});
+             lagParts.push(yoyZ(bojV, monthlyLag(), 2)); }
+    }catch(err){ console.warn(err); }
+
+    setStatus('Çin…');
+    try{
+      var chn = await fred('TRESEGCNM052N', 120);
+      var chnV = chn.map(function(o){return o.value;});
+      var c = yoyZ(chnV, monthlyLag());
+      if(c){ parts.push({name:'Çin rezervleri', z:c.z, chg:c.chg/1000, unit:' milyar $'});
+             lagParts.push(yoyZ(chnV, monthlyLag(), 2)); }
+    }catch(err){ console.warn(err); }
+
+    if(!parts.length) throw new Error('Hiçbir veri çekilemedi');
+
+    window.__usPct = usPct;
+    var score = parts.reduce(function(a,p){return a+p.z;},0)/parts.length;
+    var valid = lagParts.filter(function(x){return x!=null;});
+    var lagScore = valid.length ? valid.reduce(function(a,p){return a+p.z;},0)/valid.length : null;
+    show(score, parts, lagScore, tgaLevel, rrpLevel);
+    setStatus(new Date().toLocaleString('tr-TR'));
+  }catch(err){
+    console.error(err);
+    setStatus('Hata: ' + err.message, true);
+  }finally{
+    b.disabled = false;
+  }
+}
+
+function show(score, parts, lagScore, tgaLevel, rrpLevel){
+  var up = score > 0.25, down = score < -0.25;
+  var cls = up ? 'pos' : down ? 'neg' : 'neu';
+  document.getElementById('arrow').textContent = up ? '\u2191' : down ? '\u2193' : '\u2192';
+  document.getElementById('arrow').className = 'arrow ' + cls;
+  var v = document.getElementById('verdict');
+  v.textContent = up ? 'ARTIYOR' : down ? 'AZALIYOR' : 'YATAY';
+  v.className = 'verdict ' + cls;
+  var strong = Math.abs(score) > 1;
+  document.getElementById('verdictSub').innerHTML =
+    (up ? 'Merkez bankası bilançoları bir yıl öncesine göre büyüyor.' :
+     down ? 'Merkez bankası bilançoları bir yıl öncesine göre küçülüyor.' :
+     'Belirgin bir yön yok.') +
+    (strong ? '<br><b>Hareket tarihsel ortalamaya göre güçlü.</b>' : '');
+
+  // ---- BTC TAHMINI ----
+  var fc = document.getElementById('fcBox');
+  fc.style.display = 'block';
+  var dirEl = document.getElementById('fcDir');
+  var subEl = document.getElementById('fcSub');
+  var confEl = document.getElementById('fcConf');
+
+  var absS = Math.abs(score);
+  var guclu = absS > 0.8, zayif = absS < 0.25;
+
+  // Beklenen 3 aylik getiri: BTC'nin yapisal egilimi (+%12) + likidite katkisi
+  var bekGetiri = 12 + 0.39 * 37 * score;
+
+  if(zayif){
+    fc.className = 'fc-box flat';
+    dirEl.className = 'fc-dir neu';
+    dirEl.textContent = 'ORTALAMA SEYİR';
+    subEl.innerHTML = 'Likidite yatay. Beklenen 3 aylık getiri <b>' +
+      (bekGetiri>=0?'+':'') + bekGetiri.toFixed(0) + '%</b> — BTC\'nin tarihsel ortalamasına yakın.';
+  } else if(bekGetiri > 12){
+    fc.className = 'fc-box up';
+    dirEl.className = 'fc-dir pos';
+    dirEl.textContent = guclu ? '↑ ORTALAMANIN BELİRGİN ÜSTÜ' : '↑ ORTALAMANIN ÜSTÜ';
+    subEl.innerHTML = 'Likidite genişliyor. Beklenen 3 aylık getiri <b>' +
+      (bekGetiri>=0?'+':'') + bekGetiri.toFixed(0) + '%</b> — BTC ortalaması olan +%12\'nin üstünde.';
+  } else if(bekGetiri > 0){
+    fc.className = 'fc-box flat';
+    dirEl.className = 'fc-dir neu';
+    dirEl.textContent = '↓ ORTALAMANIN ALTI';
+    subEl.innerHTML = 'Likidite daralıyor. Beklenen 3 aylık getiri <b>+' + bekGetiri.toFixed(0) +
+      '%</b> — hâlâ artıda ama BTC ortalaması olan +%12\'nin altında.';
+  } else {
+    fc.className = 'fc-box down';
+    dirEl.className = 'fc-dir neg';
+    dirEl.textContent = guclu ? '↓ BELİRGİN DÜŞÜŞ BEKLENTİSİ' : '↓ DÜŞÜŞ BEKLENTİSİ';
+    subEl.innerHTML = 'Likidite belirgin şekilde daralıyor. Beklenen 3 aylık getiri <b>' +
+      bekGetiri.toFixed(0) + '%</b> — negatif bölgede.';
+  }
+
+  var gucAd = guclu ? 'GÜÇLÜ' : zayif ? 'ZAYIF' : 'ORTA';
+  confEl.innerHTML = 'Sinyal gücü: <b>' + gucAd + '</b> (' + (score>=0?'+':'') + score.toFixed(2) + ')' +
+    '<br>Bu ilişki BTC hareketinin ~%15\'ini açıklar (r=0.39, örneklem dışı) — tek başına karar aracı değildir.';
+
+  // ---- TGA / RRP SEVIYE CUBUKLARI ----
+  var fwBox = document.getElementById('fwBox');
+  if(tgaLevel || rrpLevel){
+    var fh = '<div class="fw-title">BUNDAN SONRASI · KALEMLERİN KONUMU</div>';
+    if(tgaLevel){
+      var tp = tgaLevel.pct, tCls, tMsg, tAr;
+      if(tp >= 70){ tCls='pos'; tAr='↑';
+        tMsg='Kasa dolu (5 yılın <b>%'+tp+'</b> üstünde). Boşalması olası — likiditeyi <b>artırır</b>. Mevcut baskı geçici olabilir.';
+      } else if(tp <= 30){ tCls='neg'; tAr='↓';
+        tMsg='Kasa boşa yakın (<b>%'+tp+'</b>). Dolması olası — likiditeyi <b>azaltır</b>. Önümüzde baskı var.';
+      } else { tCls='neu'; tAr='→'; tMsg='Orta seviyede (%'+tp+'). Belirgin yön baskısı yok.'; }
+      fh += '<div class="fw-row"><div class="fw-head"><span class="'+tCls+'">'+tAr+'</span> Hazine hesabı (TGA)' +
+        '<span class="fw-num">'+Math.round(tgaLevel.last).toLocaleString('tr-TR')+' mlr $</span></div>' +
+        '<div class="fw-bar"><div class="fw-fill '+tCls+'" style="width:'+tp+'%"></div></div>' +
+        '<div class="fw-msg">'+tMsg+'</div></div>';
+    }
+    if(rrpLevel){
+      var rp = rrpLevel.pct, rCls, rMsg, rAr;
+      if(rp <= 20){ rCls='pos'; rAr='↓';
+        rMsg='Neredeyse tükenmiş (<b>%'+rp+'</b>). Çekilecek likidite kalmadı — bu kalemden ek baskı gelmesi zor.';
+      } else if(rp >= 70){ rCls='neg'; rAr='↑';
+        rMsg='Yüksek (<b>%'+rp+'</b>). Park eden para piyasadan çekiliyor, geri dönme potansiyeli var.';
+      } else { rCls='neu'; rAr='→'; rMsg='Orta seviyede (%'+rp+').'; }
+      fh += '<div class="fw-row"><div class="fw-head"><span class="'+rCls+'">'+rAr+'</span> Ters repo (RRP)' +
+        '<span class="fw-num">'+Math.round(rrpLevel.last).toLocaleString('tr-TR')+' mlr $</span></div>' +
+        '<div class="fw-bar"><div class="fw-fill '+rCls+'" style="width:'+rp+'%"></div></div>' +
+        '<div class="fw-msg">'+rMsg+'</div></div>';
+    }
+    fh += '<div class="fw-note">Çubuklar son 5 yıllık aralıktaki konumu gösterir. Bu kalemler bir hedef etrafında salınır — uçlardayken ters yöne dönme olasılığı artar.</div>';
+    fwBox.innerHTML = fh;
+    fwBox.style.display = 'block';
+  }
+
+  // Gecikme kutusu
+  if(lagScore != null){
+    var lup = lagScore > 0.25, ldown = lagScore < -0.25;
+    var lcls = lup ? 'pos' : ldown ? 'neg' : 'neu';
+    var lar = lup ? '\u2191' : ldown ? '\u2193' : '\u2192';
+    var lagTxt = lup ? 'artıyordu' : ldown ? 'azalıyordu' : 'yataydı';
+    document.getElementById('lagBox').style.display = 'block';
+    document.getElementById('lagBox').innerHTML =
+      '<div class="lag-row"><div><div class="lag-label">ŞU AN FİYATA YANSIYAN</div>' +
+      '<div class="lag-note">~10 hafta önceki likidite ' + lagTxt + '</div></div>' +
+      '<div class="item-val ' + lcls + '" style="font-size:18px;">' + lar + ' ' + (lagScore>=0?'+':'') + lagScore.toFixed(2) + '</div></div>' +
+      '<div class="lag-row" style="border:none;"><div><div class="lag-label">BUGÜNKÜ DURUM</div>' +
+      '<div class="lag-note">yaklaşık 2-3 ay sonrasını etkiler</div></div>' +
+      '<div class="item-val ' + cls + '" style="font-size:18px;">' +
+      (score>0.25?'\u2191':score<-0.25?'\u2193':'\u2192') + ' ' + (score>=0?'+':'') + score.toFixed(2) + '</div></div>';
+  }
+
+  var h = '';
+  for(var i=0;i<parts.length;i++){
+    var p = parts[i];
+    var c = p.z > 0.25 ? 'pos' : p.z < -0.25 ? 'neg' : 'neu';
+    var ar = p.z > 0.25 ? '\u2191' : p.z < -0.25 ? '\u2193' : '\u2192';
+    var chgTxt = (p.chg>=0?'+':'') + p.chg.toLocaleString('tr-TR',{maximumFractionDigits:0}) + p.unit;
+    h += '<div class="item"><div><div class="item-name">' + p.name + '</div>' +
+         '<div class="item-note">son ' + periodAd() + ': ' + chgTxt + '</div></div>' +
+         '<div class="item-val ' + c + '">' + ar + ' ' + (p.z>=0?'+':'') + p.z.toFixed(2) + '</div></div>';
+    // Alt kirilim (TGA / RRP / WALCL)
+    if(p.sub){
+      for(var k=0;k<p.sub.length;k++){
+        var sb = p.sub[k];
+        if(!sb.v) continue;
+        // TGA ve RRP artarsa likidite AZALIR -> etki ters
+        var eff = sb.inv ? -sb.v.z : sb.v.z;
+        var sc = eff > 0.25 ? 'pos' : eff < -0.25 ? 'neg' : 'neu';
+        var sar = sb.v.chg >= 0 ? '\u25B2' : '\u25BC';
+        var sTxt = (sb.v.chg>=0?'+':'') + sb.v.chg.toLocaleString('tr-TR',{maximumFractionDigits:0}) + sb.u;
+        h += '<div class="item sub-item"><div><div class="item-name" style="font-size:12px;color:var(--muted);">' +
+             sar + ' ' + sb.n + (sb.inv ? ' <span style="font-size:9.5px;">(ters etki)</span>' : '') + '</div>' +
+             '<div class="item-note">son ' + periodAd() + ': ' + sTxt + '</div></div>' +
+             '<div class="item-val ' + sc + '" style="font-size:12px;">' + (eff>=0?'+':'') + eff.toFixed(2) + '</div></div>';
+      }
+    }
+  }
+  var l = document.getElementById('list');
+  l.innerHTML = h;
+  l.style.display = 'block';
+
+  saveSnapshot(score, parts);
+  autoLogForecast(score, window.__usPct);
+}
+
+function savePx(){
+  var v = document.getElementById('pxb').value.trim().replace(/\/+$/,'');
+  try{
+    if(v) localStorage.setItem('proxy_base', v);
+    else localStorage.removeItem('proxy_base');
+  }catch(e){}
+  document.getElementById('pxNote').textContent =
+    v ? 'Kaydedildi: ' + v : 'Temizlendi, bu sitedeki /api/proxy kullanılacak.';
+}
+
+(function(){
+  var k = getKey(); if(k) document.getElementById('key').value = k;
+  try{
+    var p = localStorage.getItem('proxy_base');
+    if(p) document.getElementById('pxb').value = p;
+  }catch(e){}
+})();
+</script>
+</body>
+</html>

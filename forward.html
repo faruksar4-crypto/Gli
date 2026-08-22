@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>İleriye Dönük Test</title>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#12151a;--panel:#1b1f26;--line:#2c323c;--brass:#c9a15c;--brass-dim:#8a7245;
+    --green:#4caf6d;--red:#d6584a;--amber:#d9a441;--text:#e8e6e1;--muted:#8a9099;}
+  *{box-sizing:border-box;} html,body{margin:0;padding:0;}
+  body{background:radial-gradient(1000px 500px at 50% -10%, #1a2029 0%, var(--bg) 55%);
+    color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;padding:24px 16px 50px;}
+  .wrap{max-width:440px;margin:0 auto;}
+  header{text-align:center;margin-bottom:18px;}
+  h1{font-family:'Oswald',sans-serif;font-weight:600;font-size:21px;margin:0;letter-spacing:0.5px;}
+  .sub{color:var(--muted);font-size:12.5px;margin-top:5px;line-height:1.5;}
+  a{color:var(--brass-dim);font-family:'JetBrains Mono',monospace;font-size:11.5px;text-decoration:none;}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:14px;}
+  .big{text-align:center;padding:24px 16px;}
+  .big-num{font-family:'JetBrains Mono',monospace;font-size:40px;font-weight:700;line-height:1;}
+  .big-label{font-family:'Oswald',sans-serif;font-size:12px;letter-spacing:2px;color:var(--muted);margin-top:8px;}
+  .pos{color:var(--green);} .neg{color:var(--red);} .neu{color:var(--amber);}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--line);}
+  .row:last-child{border-bottom:none;}
+  .row-name{font-size:12.5px;}
+  .row-val{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;}
+  .btn{width:100%;background:linear-gradient(180deg,#d9b06b,var(--brass));color:#1a1408;
+    border:none;font-family:'Oswald',sans-serif;font-weight:600;letter-spacing:1.2px;
+    font-size:14px;text-transform:uppercase;padding:15px;border-radius:10px;cursor:pointer;margin-top:14px;}
+  .btn:disabled{opacity:0.5;}
+  .btn2{flex:1;background:#252b33;border:1px solid var(--line);color:var(--text);
+    font-family:'Oswald',sans-serif;letter-spacing:1px;font-size:11.5px;text-transform:uppercase;
+    padding:11px;border-radius:8px;cursor:pointer;}
+  .status{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);
+    text-align:center;margin-top:10px;min-height:15px;}
+  .status.err{color:var(--red);}
+  .title{font-family:'Oswald',sans-serif;font-size:11.5px;letter-spacing:2px;
+    text-transform:uppercase;color:var(--brass-dim);margin:22px 0 6px 4px;}
+  table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:10.5px;}
+  th,td{padding:8px 3px;text-align:center;border-bottom:1px solid var(--line);}
+  th{color:var(--muted);font-weight:400;font-size:9.5px;}
+  td.l{text-align:left;}
+  .note{font-size:11px;color:var(--muted);line-height:1.6;margin-top:12px;}
+  .empty{text-align:center;color:var(--muted);font-size:12.5px;line-height:1.7;padding:20px 10px;}
+  .pending{color:var(--amber);}
+  .mrow{display:flex;justify-content:space-between;padding:8px 0;
+    border-bottom:1px solid var(--line);font-size:12px;}
+  .mrow b{font-family:'JetBrains Mono',monospace;}
+  .mnote{font-size:10.5px;color:var(--muted);line-height:1.6;margin-top:10px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>İLERİYE DÖNÜK TEST</h1>
+    <div class="sub">İki model yarışıyor: <b>z-skor</b> (kendi kalibrasyonumuz) ve <b>beta</b> (literatürden 6x).<br>Hangisi daha az hata yapıyor, veri söyleyecek.</div>
+    <div style="margin-top:8px;"><a href="./index.html">← Göstergeye dön</a></div>
+  </header>
+
+  <div class="panel big" id="scoreBox">
+    <div class="big-num neu" id="hitRate">—</div>
+    <div class="big-label">İSABET ORANI</div>
+    <div class="note" id="hitNote" style="margin-top:10px;">Henüz sonuçlanmış tahmin yok.</div>
+  </div>
+
+  <button class="btn" id="btn" onclick="record()">Bu Haftanın Tahminini Kaydet</button>
+  <div class="status" id="status"></div>
+
+  <div class="title">Tahmin Defteri</div>
+  <div class="panel" id="logPanel">
+    <div class="empty" id="empty">
+      Henüz kayıt yok.<br><br>
+      Her hafta "Kaydet"e bastığında o anki likidite skoru ve BTC fiyatı deftere yazılır.
+      Beklenen fiyat aralığı da birlikte kaydedilir. 13 hafta sonra sonuç otomatik hesaplanır.
+    </div>
+    <div id="logBody" style="display:none;"><div style="overflow-x:auto;"><table id="logTable"></table></div></div>
+    <div style="display:flex;gap:8px;margin-top:12px;" id="logBtns" hidden>
+      <button class="btn2" onclick="exportLog()">CSV indir</button>
+      <button class="btn2" onclick="clearLog()">Temizle</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="note" style="margin-top:0;">
+      <b>Bu neden geriye dönük testten farklı:</b> Burada tahmin, sonucu bilinmeden kaydediliyor.
+      Hiçbir şekilde geçmişe uydurma yapılamaz — kendini kandırma ihtimali sıfır.<br><br>
+      <b>Karşılığında:</b> sonuç birikmesi zaman alır. İlk sonuç 13 hafta sonra çıkar,
+      anlamlı bir isabet oranı için ~20 sonuçlanmış tahmin (yani ~8 ay) gerekir.
+    </div>
+  </div>
+</div>
+
+<script>
+// Proxy adresi: Ayarlar'dan girilirse onu kullan, yoksa ayni sunucudaki /api/proxy
+function proxyBase(){
+  try{
+    var v = (localStorage.getItem('proxy_base') || '').trim();
+    if(v) return v.replace(/\/+$/,'');
+  }catch(e){}
+  return '/api/proxy';
+}
+function px(url){ return proxyBase() + '?url=' + encodeURIComponent(url); }
+
+var HORIZON_DAYS = 91; // ~13 hafta
+// Geriye donuk testten cikan parametreler:
+var CORR = 0.39;      // ornekleme disi korelasyon
+var VOL_DEFAULT = 37; // uzun donem BTC 3 aylik oynaklik (%)
+var VOL = VOL_DEFAULT; // gerceklesen oynaklikla guncellenir
+var DRIFT = 12;       // BTC 3 aylik tarihsel ortalama getiri (%)
+
+// Son 1 yilin gerceklesen 3 aylik oynakligini hesapla
+function updateVol(weekly){
+  if(!weekly || weekly.length < 70) return;
+  var rets = [];
+  for(var i=13;i<weekly.length;i++){
+    rets.push((weekly[i].close/weekly[i-13].close - 1)*100);
+  }
+  var recent = rets.slice(-52);
+  if(recent.length < 20) return;
+  var m = recent.reduce(function(a,b){return a+b;},0)/recent.length;
+  var sd = Math.sqrt(recent.reduce(function(a,b){return a+Math.pow(b-m,2);},0)/recent.length);
+  if(sd > 5 && sd < 120) VOL = sd;
+}
+
+// MODEL B: Literaturden beta yaklasimi
+// Merkez bankasi likiditesi bazli calismalarin merkezi tahmini ~6x
+var BETA = 6;
+function forecastBeta(pct){
+  if(pct == null) return null;
+  var exp = BETA * pct;
+  var resid = VOL * Math.sqrt(1 - CORR*CORR); // ayni belirsizlik
+  return { exp: exp, lo: exp - 0.674*resid, hi: exp + 0.674*resid };
+}
+
+// Skordan beklenen getiri ve aralik uret
+// %50 bant (dar, "olasi aralik") ve %80 bant (genis, "uc durumlar")
+function forecast(score){
+  var exp = DRIFT + CORR * VOL * score;
+  var resid = VOL * Math.sqrt(1 - CORR*CORR);
+  return {
+    exp: exp,
+    lo:  exp - 0.674*resid,   // %50 guven araligi
+    hi:  exp + 0.674*resid,
+    lo80: exp - 1.282*resid,  // %80 guven araligi
+    hi80: exp + 1.282*resid,
+    resid: resid
+  };
+}
+var LOG_KEY = 'gli_forward_log';
+
+function loadLog(){
+  try{ var r = localStorage.getItem(LOG_KEY); return r ? JSON.parse(r) : []; }catch(e){ return []; }
+}
+function saveLog(l){ try{ localStorage.setItem(LOG_KEY, JSON.stringify(l)); }catch(e){} }
+function setStatus(m, err){
+  var e = document.getElementById('status');
+  e.textContent = m; e.className = 'status' + (err?' err':'');
+}
+async function proxyFetch(url){
+  try{
+    var r = await fetch(url);
+    if(r.ok) return r;
+    throw new Error('x');
+  }catch(e){
+    return await fetch(px(url));
+  }
+}
+async function btcNow(){
+  var r = await proxyFetch('https://www.bitstamp.net/api/v2/ticker/btcusd/');
+  var j = await r.json();
+  return parseFloat(j.last);
+}
+async function btcWeekly(){
+  var r = await proxyFetch('https://www.bitstamp.net/api/v2/ohlc/btcusd/?step=604800&limit=200');
+  var j = await r.json();
+  var arr = (j && j.data && j.data.ohlc) ? j.data.ohlc : [];
+  return arr.map(function(o){
+    return {date:new Date(parseInt(o.timestamp)*1000).toISOString().slice(0,10), close:parseFloat(o.close)};
+  }).sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+}
+
+async function btcDaily(){
+  var r = await proxyFetch('https://www.bitstamp.net/api/v2/ohlc/btcusd/?step=86400&limit=1000');
+  var j = await r.json();
+  var arr = (j && j.data && j.data.ohlc) ? j.data.ohlc : [];
+  return arr.map(function(o){
+    return {date:new Date(parseInt(o.timestamp)*1000).toISOString().slice(0,10), close:parseFloat(o.close)};
+  }).sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+}
+function priceAt(series, dstr){
+  var v = null;
+  for(var i=0;i<series.length;i++){
+    if(series[i].date <= dstr) v = series[i].close; else break;
+  }
+  return v;
+}
+
+async function record(){
+  var b = document.getElementById('btn');
+  b.disabled = true;
+  try{
+    // Gostergedeki en son skoru al (index.html kaydediyor)
+    var score = null, per = null;
+    var periods = [1,4,13,52];
+    for(var i=0;i<periods.length;i++){
+      try{
+        var h = JSON.parse(localStorage.getItem('gli_hist_' + periods[i]) || '[]');
+        if(h.length){
+          var last = h[h.length-1];
+          if(score === null || last.d > per){ score = last.s; per = last.d; }
+        }
+      }catch(e){}
+    }
+    if(score === null){
+      setStatus('Once gostergede "Guncelle"ye bas, sonra buraya gel.', true);
+      b.disabled = false; return;
+    }
+
+    setStatus('BTC fiyati ve oynaklik aliniyor...');
+    var px = await btcNow();
+    try{ updateVol(await btcWeekly()); }catch(e){ console.warn('oynaklik guncellenemedi', e); }
+
+    var today = new Date().toISOString().slice(0,10);
+    var log = loadLog();
+    var found = false;
+    for(var k=0;k<log.length;k++){
+      if(log[k].d === today){ log[k].s = score; log[k].px = px; found = true; }
+    }
+    if(!found) log.push({d:today, s:score, px:px});
+    log.sort(function(a,b){ return a.d < b.d ? -1 : 1; });
+    saveLog(log);
+    var f = forecast(score);
+    setStatus('Kaydedildi · %50 aralık ' +
+      Math.round(px*(1+f.lo/100)/1000) + 'k-' + Math.round(px*(1+f.hi/100)/1000) + 'k' +
+      ' · oynaklık %' + VOL.toFixed(0));
+    await evaluate();
+  }catch(e){
+    console.error(e);
+    setStatus('Hata: ' + e.message, true);
+  }finally{
+    b.disabled = false;
+  }
+}
+
+async function evaluate(){
+  var log = loadLog();
+  if(!log.length){ render(log); return; }
+  var needsEval = log.some(function(e){
+    return e.ret === undefined && (Date.now() - new Date(e.d).getTime())/86400000 >= HORIZON_DAYS;
+  });
+  if(needsEval){
+    try{
+      var daily = await btcDaily();
+      for(var i=0;i<log.length;i++){
+        var e = log[i];
+        if(e.ret !== undefined) continue;
+        var age = (Date.now() - new Date(e.d).getTime())/86400000;
+        if(age < HORIZON_DAYS) continue;
+        var target = new Date(new Date(e.d).getTime() + HORIZON_DAYS*86400000).toISOString().slice(0,10);
+        var p2 = priceAt(daily, target);
+        if(p2 != null){
+          e.ret = (p2/e.px - 1)*100;
+          e.px2 = p2;
+        }
+      }
+      saveLog(log);
+    }catch(err){ console.warn('degerlendirme yapilamadi', err); }
+  }
+  render(log);
+}
+
+function render(log){
+  var done = log.filter(function(e){ return e.ret !== undefined; });
+
+  // 1) Yon isabeti
+  var hits = done.filter(function(e){
+    return (e.s > 0 && e.ret > 0) || (e.s < 0 && e.ret < 0);
+  });
+  // 2) Aralik isabeti (kalibrasyon) - hedef ~%50
+  var inRange = done.filter(function(e){
+    var f = forecast(e.s);
+    return e.ret >= f.lo && e.ret <= f.hi;
+  });
+  // 3) Ortalama mutlak hata: 3 model karsilastirmasi
+  var errModel = 0, errNaive = 0, errBeta = 0, nBeta = 0;
+  done.forEach(function(e){
+    errModel += Math.abs(e.ret - forecast(e.s).exp);
+    errNaive += Math.abs(e.ret - DRIFT);
+    var fb = forecastBeta(e.pct);
+    if(fb){ errBeta += Math.abs(e.ret - fb.exp); nBeta++; }
+  });
+  if(done.length){ errModel /= done.length; errNaive /= done.length; }
+  if(nBeta) errBeta /= nBeta;
+
+  var hr = done.length ? (hits.length/done.length*100) : null;
+  var el = document.getElementById('hitRate');
+  el.textContent = hr === null ? '—' : hr.toFixed(0) + '%';
+  el.className = 'big-num ' + (hr === null ? 'neu' : hr >= 60 ? 'pos' : hr >= 45 ? 'neu' : 'neg');
+
+  var note = '';
+  if(done.length === 0){
+    note = 'Henüz sonuçlanmış tahmin yok. İlk sonuç ilk kayıttan 13 hafta sonra çıkar.';
+  } else {
+    var rangePct = (inRange.length/done.length*100).toFixed(0);
+    var better = errModel < errNaive;
+    note = '<div style="text-align:left;">' +
+      '<div class="mrow"><span>Yön isabeti</span><b>' + hits.length + '/' + done.length + '</b></div>' +
+      '<div class="mrow"><span>Aralık içinde kaldı</span><b>' + inRange.length + '/' + done.length +
+        ' (%' + rangePct + ')</b></div>' +
+      '<div class="mrow"><span>Ort. hata — z-skor modeli</span><b class="' + (better?'pos':'neu') + '">' + errModel.toFixed(0) + '%</b></div>' +
+      (nBeta ? '<div class="mrow"><span>Ort. hata — beta modeli (' + BETA + 'x)</span><b>' + errBeta.toFixed(0) + '% <span style="font-size:9px;color:var(--muted);">(' + nBeta + ')</span></b></div>' : '') +
+      '<div class="mrow" style="border:none;"><span>Ort. hata — naif (sabit ortalama)</span><b>' + errNaive.toFixed(0) + '%</b></div>' +
+      '<div class="mnote">Aralık isabeti <b>%50</b> civarı olmalı — çok düşükse model fazla iddialı, ' +
+      'çok yüksekse aralık gereksiz geniş.<br>' +
+      '<b>Üç yaklaşım yarışıyor:</b> z-skor modeli (bizim kalibrasyonumuz), beta modeli (literatürden ' + BETA + 'x katsayı), ' +
+      've naif tahmin (skora hiç bakma, hep ortalama de). En düşük hata kazanır.<br>' +
+      (better ? '<span class="pos">Z-skor modeli şu an naiften iyi.</span>' : '<span class="neg">Z-skor modeli şu an naiften iyi değil.</span>') +
+      '</div></div>';
+    if(done.length < 20) note += '<div class="pending" style="margin-top:8px;">Örneklem küçük (' + done.length + ') — henüz sonuç çıkarma.</div>';
+  }
+  document.getElementById('hitNote').innerHTML = note;
+
+  if(!log.length){
+    document.getElementById('empty').style.display = 'block';
+    document.getElementById('logBody').style.display = 'none';
+    document.getElementById('logBtns').hidden = true;
+    return;
+  }
+  document.getElementById('empty').style.display = 'none';
+  document.getElementById('logBody').style.display = 'block';
+  document.getElementById('logBtns').hidden = false;
+
+  var h = '<tr><th>Tarih</th><th>Skor</th><th>BTC</th><th>Z-model</th><th>Beta</th><th>Gerçek</th></tr>';
+  var rev = log.slice().reverse();
+  for(var i=0;i<rev.length;i++){
+    var e = rev[i];
+    var f = forecast(e.s);
+    var dt = new Date(e.d);
+    var ds = dt.getDate() + '.' + (dt.getMonth()+1);
+    var scls = e.s > 0.25 ? 'pos' : e.s < -0.25 ? 'neg' : 'neu';
+    var loP = e.px*(1+f.lo/100), hiP = e.px*(1+f.hi/100), expP = e.px*(1+f.exp/100);
+    var rangeTxt = Math.round(loP/1000) + 'k-' + Math.round(hiP/1000) + 'k' +
+      '<div style="font-size:9px;color:var(--muted);">%50 · bek. ' + Math.round(expP/1000) + 'k</div>';
+    var res, rcls;
+    if(e.ret === undefined){
+      var left = Math.ceil(HORIZON_DAYS - (Date.now() - dt.getTime())/86400000);
+      res = left + 'g'; rcls = 'pending';
+    } else {
+      var ok = (e.ret >= f.lo && e.ret <= f.hi);
+      res = Math.round(e.px2/1000) + 'k' +
+        '<div style="font-size:9px;">' + (ok ? '\u2713 aralıkta' : '\u2717 dışında') + '</div>';
+      rcls = ok ? 'pos' : 'neg';
+    }
+    var fb = forecastBeta(e.pct);
+    var betaTxt = fb ? Math.round(e.px*(1+fb.exp/100)/1000) + 'k' : '—';
+    h += '<tr><td class="l">' + ds + '</td>' +
+         '<td class="' + scls + '">' + (e.s>=0?'+':'') + e.s.toFixed(2) + '</td>' +
+         '<td>' + Math.round(e.px/1000) + 'k</td>' +
+         '<td style="font-size:9.5px;">' + rangeTxt + '</td>' +
+         '<td style="font-size:9.5px;">' + betaTxt + '</td>' +
+         '<td class="' + rcls + '">' + res + '</td></tr>';
+  }
+  document.getElementById('logTable').innerHTML = h;
+}
+
+function exportLog(){
+  var log = loadLog();
+  var csv = 'tarih,skor,likidite_yuzde,btc_fiyat,z_model_beklenen,alt_sinir,ust_sinir,beta_model_beklenen,3ay_sonra,gercek_getiri\n' + log.map(function(e){
+    var f = forecast(e.s);
+    var fb2 = forecastBeta(e.pct);
+    return e.d + ',' + e.s + ',' + (e.pct!=null?e.pct:'') + ',' + e.px + ',' + f.exp.toFixed(1) + ',' +
+      f.lo.toFixed(1) + ',' + f.hi.toFixed(1) + ',' + (fb2?fb2.exp.toFixed(1):'') + ',' +
+      (e.px2||'') + ',' + (e.ret!==undefined?e.ret.toFixed(2):'');
+  }).join('\n');
+  var a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'tahmin-defteri.csv';
+  a.click();
+}
+function clearLog(){
+  if(!confirm('Tum tahmin kayitlari silinecek. Emin misin?')) return;
+  try{ localStorage.removeItem(LOG_KEY); }catch(e){}
+  render([]);
+}
+
+evaluate();
+</script>
+</body>
+</html>

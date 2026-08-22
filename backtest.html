@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GLI-PRO — Geriye Dönük Test</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#12151a; --panel:#1b1f26; --panel-2:#22272f; --line:#2c323c;
+    --brass:#c9a15c; --brass-dim:#8a7245; --green:#4caf6d; --red:#d6584a;
+    --amber:#d9a441; --text:#e8e6e1; --muted:#8a9099;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:radial-gradient(1200px 600px at 50% -10%, #1a2029 0%, var(--bg) 55%);
+    color:var(--text); font-family:'Inter',sans-serif; min-height:100vh;
+    padding:20px 14px 60px;
+  }
+  .wrap{max-width:480px;margin:0 auto;}
+  header{text-align:center;margin-bottom:20px;}
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:3px;
+    color:var(--brass-dim);text-transform:uppercase;margin-bottom:6px;}
+  h1{font-family:'Oswald',sans-serif;font-weight:600;font-size:24px;margin:0;}
+  .sub{color:var(--muted);font-size:12.5px;margin-top:6px;line-height:1.5;}
+  a.back{color:var(--brass);font-size:12px;text-decoration:none;font-family:'JetBrains Mono',monospace;}
+  .btn{
+    width:100%;background:linear-gradient(180deg,#d9b06b,var(--brass));
+    color:#1a1408;border:none;font-family:'Oswald',sans-serif;font-weight:600;
+    letter-spacing:1.5px;font-size:14px;text-transform:uppercase;
+    padding:14px;border-radius:10px;margin-top:14px;cursor:pointer;
+  }
+  .btn:disabled{opacity:0.5;}
+  .status{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--muted);
+    text-align:center;margin-top:10px;min-height:16px;line-height:1.5;}
+  .status.err{color:var(--red);}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:16px;margin-top:16px;}
+  .section-title{font-family:'Oswald',sans-serif;font-size:12px;letter-spacing:2.5px;
+    text-transform:uppercase;color:var(--brass-dim);margin:24px 0 8px 4px;}
+  .row{display:flex;justify-content:space-between;align-items:baseline;
+    padding:9px 0;border-bottom:1px solid var(--line);}
+  .row:last-child{border-bottom:none;}
+  .row-name{font-size:12.5px;}
+  .row-val{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;}
+  .pos{color:var(--green);} .neg{color:var(--red);} .neu{color:var(--amber);}
+  .note{font-size:11.5px;color:var(--muted);line-height:1.6;margin-top:10px;}
+  .verdict{border-radius:10px;padding:14px;margin-top:14px;font-size:13px;line-height:1.6;}
+  .verdict.good{background:rgba(76,175,109,0.1);border:1px solid var(--green);}
+  .verdict.weak{background:rgba(217,164,65,0.1);border:1px solid var(--amber);}
+  .verdict.bad{background:rgba(214,88,74,0.1);border:1px solid var(--red);}
+  table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:10.5px;}
+  th,td{padding:6px 3px;text-align:center;border-bottom:1px solid var(--line);}
+  th{color:var(--muted);font-weight:400;font-size:9.5px;}
+  td.label{text-align:left;color:var(--muted);font-size:9.5px;}
+  .scroll{overflow-x:auto;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">GLI-PRO</div>
+    <h1>Geriye Dönük Test</h1>
+    <div class="sub">Bileşenler BTC'nin sonraki 3 aylık getirisini gerçekten öngörüyor mu?</div>
+    <div style="margin-top:10px;"><a class="back" href="./index.html">← Panele dön</a></div>
+  </header>
+
+  <div class="panel">
+    <div class="note">
+      Her tarihteki z-score yalnızca <b>o tarihe kadarki</b> veriyle hesaplanır (104 haftalık kayan pencere).
+      Böylece geleceği bilme (lookahead) yanlılığı olmaz — aksi halde sonuçlar sahte çıkardı.
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <div style="flex:1;">
+        <div style="font-size:10.5px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:5px;">İLERİ GETİRİ UFKU</div>
+        <select id="horizonSel" style="width:100%;background:#0d0f13;border:1px solid var(--line);color:var(--text);padding:10px;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:12.5px;">
+          <option value="13">3 ay</option>
+          <option value="26" selected>6 ay</option>
+          <option value="52">12 ay</option>
+        </select>
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:10.5px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:5px;">ÖLÇÜM ŞEKLİ</div>
+        <select id="modeSel" style="width:100%;background:#0d0f13;border:1px solid var(--line);color:var(--text);padding:10px;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:12.5px;">
+          <option value="level">Seviye</option>
+          <option value="chg13">3 aylık değişim (hız)</option>
+          <option value="chg52" selected>Yıllık değişim (hız)</option>
+          <option value="accel52">Yıllık değişimin İVMESİ</option>
+          <option value="accel13">3 aylık değişimin İVMESİ</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn" id="runBtn" onclick="runBacktest()">Testi Çalıştır</button>
+    <div id="keyBox" style="display:none;margin-top:14px;">
+      <div style="font-size:11.5px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:6px;">FRED API Anahtarı</div>
+      <input type="password" id="keyInput" placeholder="anahtarı yapıştır"
+        style="width:100%;background:#0d0f13;border:1px solid var(--line);color:var(--text);padding:10px 12px;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:13px;">
+      <button class="btn" style="background:linear-gradient(180deg,#2a3038,#1d222a);color:var(--text);border:1px solid var(--line);" onclick="saveKeyHere()">Anahtarı Kaydet</button>
+    </div>
+    <div class="status" id="status">FRED anahtarı ana panelde girilmiş olmalı.</div>
+  </div>
+
+  <div id="results"></div>
+</div>
+
+<script>
+// Proxy adresi: Ayarlar'dan girilirse onu kullan, yoksa ayni sunucudaki /api/proxy
+function proxyBase(){
+  try{
+    var v = (localStorage.getItem('proxy_base') || '').trim();
+    if(v) return v.replace(/\/+$/,'');
+  }catch(e){}
+  return '/api/proxy';
+}
+function px(url){ return proxyBase() + '?url=' + encodeURIComponent(url); }
+
+let HORIZON_WEEKS = 13;   // ileri getiri ufku (hafta)
+let MODE = 'level';       // 'level' | 'chg13' | 'chg52'
+const ZWIN = 104;         // kayan z-score penceresi (2 yıl)
+
+// Bir seriyi secilen donusume gore hazirlar
+function transform(arr){
+  if(MODE === 'level') return arr.slice();
+
+  // Once yillik/donemsel degisim (hiz)
+  const lag = (MODE === 'chg13' || MODE === 'accel13') ? 13 : 52;
+  const chg = arr.map((v,i)=> (i>=lag && v!=null && arr[i-lag]!=null) ? v-arr[i-lag] : null);
+
+  if(MODE === 'chg13' || MODE === 'chg52') return chg;
+
+  // IVME: hizin kendi degisimi (ikinci turev)
+  // accel13 -> 13 haftalik degisimin son 13 haftadaki degisimi
+  // accel52 -> yillik degisimin son 13 haftadaki degisimi
+  const aLag = 13;
+  return chg.map(function(v,i){
+    return (i>=aLag && v!=null && chg[i-aLag]!=null) ? v-chg[i-aLag] : null;
+  });
+}
+
+let sessionApiKey = '';
+
+async function getApiKey(){
+  if(sessionApiKey) return sessionApiKey;
+  try{
+    const v = localStorage.getItem('fred_api_key');
+    if(v){ sessionApiKey = v; return v; }
+  }catch(e){}
+  return '';
+}
+
+function saveKeyHere(){
+  const val = document.getElementById('keyInput').value.trim();
+  if(!val) return;
+  sessionApiKey = val;
+  try{ localStorage.setItem('fred_api_key', val); }catch(e){}
+  document.getElementById('keyBox').style.display = 'none';
+  setStatus('✓ Anahtar ayarlandı. "Testi Çalıştır"a basabilirsin.');
+}
+
+async function showKeyBoxIfNeeded(){
+  const k = await getApiKey();
+  if(!k) document.getElementById('keyBox').style.display = 'block';
+}
+
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+async function fetchViaProxy(url){
+  const res = await fetch(px(url));
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  return res;
+}
+
+async function fred(seriesId, apiKey, limit){
+  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${seriesId}&api_key=${apiKey}&file_type=json&sort_order=desc&limit=${limit}`;
+  const res = await fetchViaProxy(url);
+  const data = await res.json();
+  if(!data.observations) throw new Error(seriesId + ': geçersiz yanıt');
+  await sleep(150);
+  return data.observations.filter(o=>o.value!=='.')
+    .map(o=>({date:o.date, value:parseFloat(o.value)})).reverse();
+}
+
+function valueAt(series, dateStr){
+  // dateStr tarihinde veya öncesindeki son değer (ileriye bakmaz)
+  let v = null;
+  for(const o of series){
+    if(o.date <= dateStr) v = o.value; else break;
+  }
+  return v;
+}
+
+function rollingZ(values, i, win){
+  const start = Math.max(0, i-win+1);
+  const slice = values.slice(start, i+1);
+  if(slice.length < 30) return null;
+  const mean = slice.reduce((a,b)=>a+b,0)/slice.length;
+  const sd = Math.sqrt(slice.reduce((a,b)=>a+(b-mean)**2,0)/slice.length);
+  return sd === 0 ? null : (values[i]-mean)/sd;
+}
+
+function quantile(sorted, q){
+  const pos = (sorted.length-1)*q;
+  const lo = Math.floor(pos), hi = Math.ceil(pos);
+  return lo===hi ? sorted[lo] : sorted[lo] + (sorted[hi]-sorted[lo])*(pos-lo);
+}
+
+function median(arr){
+  if(!arr.length) return null;
+  const s2 = [...arr].sort((a,b)=>a-b);
+  return quantile(s2, 0.5);
+}
+
+function pearson(xs, ys){
+  const n = xs.length;
+  if(n < 20) return null;
+  const mx = xs.reduce((a,b)=>a+b,0)/n, my = ys.reduce((a,b)=>a+b,0)/n;
+  let num=0, dx=0, dy=0;
+  for(let i=0;i<n;i++){
+    const a=xs[i]-mx, b=ys[i]-my;
+    num+=a*b; dx+=a*a; dy+=b*b;
+  }
+  return (dx===0||dy===0) ? null : num/Math.sqrt(dx*dy);
+}
+
+async function bitstampBTC(){
+  // Bitstamp halka acik OHLC: haftalik, 2011'e kadar, anahtar gerekmez
+  const url = 'https://www.bitstamp.net/api/v2/ohlc/btcusd/?step=604800&limit=1000';
+  let res;
+  try{
+    res = await fetch(url);
+    if(!res.ok) throw new Error('x');
+  }catch(e){
+    res = await fetchViaProxy(url);
+  }
+  const j = await res.json();
+  const arr = (j && j.data && j.data.ohlc) ? j.data.ohlc : [];
+  return arr.map(o=>({
+    date: new Date(parseInt(o.timestamp)*1000).toISOString().slice(0,10),
+    value: parseFloat(o.close)
+  })).filter(o=>!isNaN(o.value)).sort((a,b)=>a.date<b.date?-1:1);
+}
+
+async function stablecoinSeries(){
+  let res;
+  try{
+    res = await fetch('https://stablecoins.llama.fi/stablecoincharts/all');
+    if(!res.ok) throw new Error('x');
+  }catch(e){
+    res = await fetchViaProxy('https://stablecoins.llama.fi/stablecoincharts/all');
+  }
+  const data = await res.json();
+  return data.map(d=>({
+      date: new Date(d.date*1000).toISOString().slice(0,10),
+      value: d.totalCirculating && d.totalCirculating.peggedUSD ? d.totalCirculating.peggedUSD : null
+    })).filter(d=>d.value!=null).sort((a,b)=>a.date<b.date?-1:1);
+}
+
+function setStatus(msg, err){
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = 'status' + (err?' err':'');
+}
+
+async function runBacktest(){
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  HORIZON_WEEKS = parseInt(document.getElementById('horizonSel').value);
+  MODE = document.getElementById('modeSel').value;
+  const apiKey = await getApiKey();
+  if(!apiKey){
+    setStatus('FRED anahtarını aşağıya yapıştır.', true);
+    document.getElementById('keyBox').style.display = 'block';
+    btn.disabled = false; return;
+  }
+
+  try{
+    setStatus('ABD likidite serileri çekiliyor…');
+    const walcl = await fred('WALCL', apiKey, 1200);
+    const tga   = await fred('WTREGEN', apiKey, 1200);
+    const rrp   = await fred('RRPONTSYD', apiKey, 8000);
+
+    setStatus('Yabancı merkez bankaları çekiliyor…');
+    const ecb   = await fred('ECBASSETSW', apiKey, 1200);
+    const boj   = await fred('JPNASSETS', apiKey, 400);
+    const chn   = await fred('TRESEGCNM052N', apiKey, 400);
+
+    setStatus('DXY ve kredi spreadi çekiliyor…');
+    const dxy    = await fred('DTWEXBGS', apiKey, 8000);
+    // BAMLH0A0HYM2 (ICE BofA) FRED API'de telif nedeniyle sadece ~3 yil veriyor.
+    // BAA10Y (Moody's Baa - 10Y Treasury) 1986'dan beri, kisitsiz.
+    let credit, creditName = 'BAA10Y (Baa-10Y spread)';
+    try{
+      credit = await fred('BAA10Y', apiKey, 12000);
+      if(credit.length < 500) throw new Error('kisa');
+    }catch(e){
+      credit = await fred('BAMLH0A0HYM2', apiKey, 8000);
+      creditName = 'BAMLH0A0HYM2 (HY OAS)';
+    }
+
+    setStatus('BTC fiyat geçmişi çekiliyor (Bitstamp)…');
+    let btc = [];
+    try{
+      btc = await bitstampBTC();
+    }catch(e){
+      console.warn('Bitstamp basarisiz, FRED CBBTCUSD deneniyor', e);
+      btc = await fred('CBBTCUSD', apiKey, 8000);
+    }
+    if(!btc.length) throw new Error('BTC verisi cekilemedi');
+
+    setStatus('Stablecoin arzı çekiliyor…');
+    let stable = [];
+    try{ stable = await stablecoinSeries(); }catch(e){ console.warn('stablecoin yok', e); }
+
+    setStatus('Haftalık ızgara kuruluyor ve z-score hesaplanıyor…');
+
+    const diag = [
+      ['WALCL (ABD bilanço)', walcl], ['WTREGEN (TGA)', tga], ['RRPONTSYD (RRP)', rrp],
+      ['ECBASSETSW (ECB)', ecb], ['JPNASSETS (BOJ)', boj], ['TRESEGCNM052N (Çin)', chn],
+      ['DTWEXBGS (DXY)', dxy], [creditName, credit], ['BTC fiyat', btc],
+      ['Stablecoin arzı', stable]
+    ].map(([n,a])=>({
+      name:n, n:a.length,
+      first: a.length ? a[0].date : '—',
+      last: a.length ? a[a.length-1].date : '—'
+    }));
+
+    // WALCL tarihleri haftalık ızgara olarak kullanılır
+    const dates = walcl.map(o=>o.date);
+    const rawUS=[], rawForeign=[], rawDXY=[], rawCredit=[], rawStable=[], btcPx=[], gridDates=[];
+
+    for(const d of dates){
+      const w = valueAt(walcl,d), t = valueAt(tga,d), r = valueAt(rrp,d);
+      const e = valueAt(ecb,d), j = valueAt(boj,d), c = valueAt(chn,d);
+      const dx = valueAt(dxy,d), cr = valueAt(credit,d), bp = valueAt(btc,d);
+      const st = stable.length ? valueAt(stable,d) : null;
+      if([w,t,r,e,j,c,dx,cr,bp].some(v=>v==null)) continue;
+      gridDates.push(d);
+      rawUS.push(w/1000 - t/1000 - r);        // hepsi milyar USD
+      rawForeign.push({e:e, j:j, c:c});
+      rawDXY.push(dx);
+      rawCredit.push(cr);
+      rawStable.push(st);
+      btcPx.push(bp);
+    }
+
+    if(gridDates.length < ZWIN + HORIZON_WEEKS + 30){
+      throw new Error('Yeterli ortak geçmiş yok (' + gridDates.length + ' hafta)');
+    }
+
+    // Yabancı MB: her biri ayrı z, sonra ortalama
+    const usArr  = transform(rawUS);
+    const ecbArr = transform(rawForeign.map(o=>o.e));
+    const bojArr = transform(rawForeign.map(o=>o.j));
+    const chnArr = transform(rawForeign.map(o=>o.c));
+    const dxyArr = transform(rawDXY);
+    const crArr  = transform(rawCredit);
+    // Stablecoin: 4 haftalık arz değişimi
+    const stableDelta = rawStable.map((v,i)=> (v!=null && i>=4 && rawStable[i-4]!=null) ? v-rawStable[i-4] : null);
+
+    const rows = [];
+    for(let i=0;i<gridDates.length;i++){
+      const zUS = usArr[i]==null?null:rollingZ(usArr.map(v=>v==null?0:v), i, ZWIN);
+      const zE = ecbArr[i]==null?null:rollingZ(ecbArr.map(v=>v==null?0:v),i,ZWIN), zJ = bojArr[i]==null?null:rollingZ(bojArr.map(v=>v==null?0:v),i,ZWIN), zC = chnArr[i]==null?null:rollingZ(chnArr.map(v=>v==null?0:v),i,ZWIN);
+      const zDX = dxyArr[i]==null?null:rollingZ(dxyArr.map(v=>v==null?0:v), i, ZWIN);
+      const zCR = crArr[i]==null?null:rollingZ(crArr.map(v=>v==null?0:v), i, ZWIN);
+      let zST = null;
+      if(stableDelta[i]!=null){
+        const hist = stableDelta.slice(0,i+1).filter(v=>v!=null);
+        if(hist.length>=30){
+          const sl = hist.slice(-ZWIN);
+          const m = sl.reduce((a,b)=>a+b,0)/sl.length;
+          const sd = Math.sqrt(sl.reduce((a,b)=>a+(b-m)**2,0)/sl.length);
+          if(sd>0) zST = (stableDelta[i]-m)/sd;
+        }
+      }
+      const fZ = [zE,zJ,zC].filter(v=>v!=null);
+      const zFO = fZ.length ? fZ.reduce((a,b)=>a+b,0)/fZ.length : null;
+
+      // ileri getiri
+      const fi = i + HORIZON_WEEKS;
+      if(fi >= gridDates.length) continue;
+      const fwd = (btcPx[fi]/btcPx[i] - 1) * 100;
+
+      if([zUS,zFO,zDX,zCR].some(v=>v==null)) continue;
+      rows.push({date:gridDates[i], zUS, zFO, zDX:-zDX, zCR:-zCR, zST:(zST==null?0:zST), fwd});
+      // zDX ve zCR ters yönlü olduğu için işaretleri burada çevrildi
+    }
+
+    if(rows.length < 40) throw new Error('Yeterli örneklem yok (' + rows.length + ')');
+
+    setStatus('Korelasyonlar hesaplanıyor…');
+
+    const comps = [
+      {key:'zUS',  name:'ABD Net Likidite',        w:0.35},
+      {key:'zFO',  name:'ECB+BOJ+Çin Rez.',        w:0.25},
+      {key:'zDX',  name:'DXY (ters)',              w:0.15},
+      {key:'zST',  name:'Δ Stablecoin',            w:0.15},
+      {key:'zCR',  name:'Kredi Primi (ters)',      w:0.10},
+    ];
+    const fwd = rows.map(r=>r.fwd);
+
+    // 1) Her bileşenin ileri getiriyle korelasyonu
+    const compCorr = comps.map(c=>({
+      name:c.name, key:c.key, w:c.w,
+      corr: pearson(rows.map(r=>r[c.key]), fwd)
+    }));
+
+    // 2) Mevcut ağırlıklarla kompozit
+    const composite = rows.map(r=> comps.reduce((s,c)=> s + c.w*r[c.key], 0));
+    const compositeCorr = pearson(composite, fwd);
+
+    // 3) Bileşenler arası korelasyon matrisi
+    const matrix = comps.map(a=> comps.map(b=>
+      pearson(rows.map(r=>r[a.key]), rows.map(r=>r[b.key]))
+    ));
+
+    // 4) Sinyal bölgelerine göre ortalama getiri
+    const buckets = {gucluPoz:[], zayifPoz:[], zayifNeg:[], gucluNeg:[]};
+    composite.forEach((s,i)=>{
+      if(s>0.5) buckets.gucluPoz.push(fwd[i]);
+      else if(s>0) buckets.zayifPoz.push(fwd[i]);
+      else if(s>-0.5) buckets.zayifNeg.push(fwd[i]);
+      else buckets.gucluNeg.push(fwd[i]);
+    });
+    const avg = a => a.length ? a.reduce((x,y)=>x+y,0)/a.length : null;
+
+    // ---- ÖRNEKLEM DIŞI TEST ----
+    const SPLIT = '2022-01-01';
+    const trainIdx = [], testIdx = [];
+    rows.forEach((r,i)=>{ (r.date < SPLIT ? trainIdx : testIdx).push(i); });
+
+    let oos = null;
+    if(trainIdx.length >= 60 && testIdx.length >= 60){
+      const sub = (idxs, key) => idxs.map(i=>rows[i][key]);
+      const subFwd = idxs => idxs.map(i=>rows[i].fwd);
+
+      // 1) Egitim setinde her bilesenin korelasyonu
+      const trainCorr = comps.map(c=>({
+        key:c.key, name:c.name,
+        corr: pearson(sub(trainIdx,c.key), subFwd(trainIdx))
+      }));
+
+      // 2) Agirliklar: sadece egitim setinden. Negatif korelasyonlu bilesen 0 alir.
+      const rawW = trainCorr.map(c=> Math.max(c.corr||0, 0));
+      const sumW = rawW.reduce((a,b)=>a+b,0);
+      const fitW = sumW>0 ? rawW.map(v=>v/sumW) : comps.map(()=>1/comps.length);
+
+      // 3) Test setinde degerlendirme
+      const compAt = (i,W) => comps.reduce((s2,c,k)=> s2 + W[k]*rows[i][c.key], 0);
+      const manualW = comps.map(c=>c.w);
+
+      const testFwd = subFwd(testIdx);
+      const testFit    = testIdx.map(i=>compAt(i,fitW));
+      const testManual = testIdx.map(i=>compAt(i,manualW));
+      const trainFit   = trainIdx.map(i=>compAt(i,fitW));
+
+      // 4) Bilesen isaret kararliligi: egitim vs test
+      const testCorr = comps.map(c=>({
+        key:c.key, name:c.name,
+        corr: pearson(sub(testIdx,c.key), subFwd(testIdx))
+      }));
+
+      // 5) Test setinde bolge tablosu (kalibre agirliklarla)
+      const tb = {a:[],b:[],c:[],d:[]};
+      testFit.forEach((sc,k)=>{
+        if(sc>0.5) tb.a.push(testFwd[k]);
+        else if(sc>0) tb.b.push(testFwd[k]);
+        else if(sc>-0.5) tb.c.push(testFwd[k]);
+        else tb.d.push(testFwd[k]);
+      });
+
+      // ---- QUINTIL ANALIZI ----
+      // Kesim noktalari YALNIZCA egitim setinin dagilimindan cikarilir.
+      const trainScores = trainIdx.map(i=>compAt(i,fitW)).sort((a,b)=>a-b);
+      const cuts = [0.2,0.4,0.6,0.8].map(q=>quantile(trainScores,q));
+
+      function bucketOf(sc){
+        let b = 0;
+        for(const c of cuts){ if(sc > c) b++; }
+        return b; // 0..4
+      }
+
+      const q_test = [[],[],[],[],[]];
+      testIdx.forEach(i=>{
+        q_test[bucketOf(compAt(i,fitW))].push(rows[i].fwd);
+      });
+      const q_train = [[],[],[],[],[]];
+      trainIdx.forEach(i=>{
+        q_train[bucketOf(compAt(i,fitW))].push(rows[i].fwd);
+      });
+
+      // Monotonluk: dilim ortalamalari artan siralamada mi?
+      const testMeans = q_test.map(a=> a.length ? a.reduce((x,y)=>x+y,0)/a.length : null);
+      let monoOK = 0, monoTot = 0;
+      for(let k=1;k<5;k++){
+        if(testMeans[k]!=null && testMeans[k-1]!=null){
+          monoTot++;
+          if(testMeans[k] >= testMeans[k-1]) monoOK++;
+        }
+      }
+
+      // Spearman rank korelasyonu (dogrusal olmayan iliskiyi de yakalar)
+      function rank(a){
+        const idx = a.map((v,i)=>[v,i]).sort((x,y)=>x[0]-y[0]);
+        const r = new Array(a.length);
+        idx.forEach((pair,k)=> r[pair[1]] = k+1);
+        return r;
+      }
+      const testFitArr = testIdx.map(i=>compAt(i,fitW));
+      const spearman = pearson(rank(testFitArr), rank(testFwd));
+
+      oos = {
+        split: SPLIT,
+        cuts, q_test, q_train, testMeans, monoOK, monoTot, spearman,
+        trainN: trainIdx.length, testN: testIdx.length,
+        trainRange: [rows[trainIdx[0]].date, rows[trainIdx[trainIdx.length-1]].date],
+        testRange:  [rows[testIdx[0]].date,  rows[testIdx[testIdx.length-1]].date],
+        trainCorr, testCorr, fitW, manualW,
+        inSample:  pearson(trainFit, subFwd(trainIdx)),
+        outSampleFit:    pearson(testFit, testFwd),
+        outSampleManual: pearson(testManual, testFwd),
+        buckets: tb
+      };
+    }
+
+    render({rows, compCorr, compositeCorr, matrix, comps, buckets, avg, gridDates, composite, fwd, diag, oos});
+    const modeAd = {level:'Seviye', chg13:'3 aylık hız', chg52:'Yıllık hız',
+                    accel52:'Yıllık hızın İVMESİ', accel13:'3 aylık hızın İVMESİ'}[MODE];
+    const ufukAd = {13:'3 ay', 26:'6 ay', 52:'12 ay'}[HORIZON_WEEKS];
+    setStatus('✓ ' + ufukAd + ' ufuk · ' + modeAd + ' — ' + rows.length + ' hafta, ' +
+      rows[0].date + ' → ' + rows[rows.length-1].date);
+
+  }catch(e){
+    console.error(e);
+    setStatus('Hata: ' + e.message, true);
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+function fmtCorr(c){ return c==null ? '—' : (c>=0?'+':'') + c.toFixed(2); }
+function corrCls(c){ if(c==null) return 'neu'; return Math.abs(c)<0.15 ? 'neu' : (c>0?'pos':'neg'); }
+
+function render(d){
+  const el = document.getElementById('results');
+  let h = '';
+
+  // Kompozit sonuç
+  const cc = d.compositeCorr;
+  const strength = cc==null ? 'bilinmiyor' : Math.abs(cc)<0.15 ? 'yok denecek kadar zayıf'
+    : Math.abs(cc)<0.30 ? 'zayıf ama sıfırdan farklı' : Math.abs(cc)<0.5 ? 'orta' : 'güçlü';
+  const vcls = cc==null ? 'weak' : Math.abs(cc)<0.15 ? 'bad' : Math.abs(cc)<0.30 ? 'weak' : 'good';
+
+  // ---- ÖRNEKLEM DIŞI BÖLÜM (en üstte) ----
+  if(d.oos){
+    const o = d.oos;
+    const os = o.outSampleFit, ins = o.inSample, om = o.outSampleManual;
+    const drop = (ins!=null && os!=null) ? (ins - os) : null;
+    const vc = os==null ? 'weak' : os < 0.05 ? 'bad' : os < 0.15 ? 'weak' : 'good';
+
+    h += `<div class="section-title">★ Örneklem Dışı Test (asıl sınav)</div>
+    <div class="panel">
+      <div class="note" style="margin-top:0;">
+        Ağırlıklar <b>${o.trainRange[0]} → ${o.trainRange[1]}</b> (${o.trainN} hafta) verisinden belirlendi.
+        Sonra hiç görülmemiş <b>${o.testRange[0]} → ${o.testRange[1]}</b> (${o.testN} hafta) verisinde sınandı.
+      </div>
+      <div class="row"><span class="row-name">Eğitim setinde (içeriden)</span>
+        <span class="row-val ${corrCls(ins)}">${fmtCorr(ins)}</span></div>
+      <div class="row"><span class="row-name"><b>Test setinde (dışarıdan)</b></span>
+        <span class="row-val ${corrCls(os)}">${fmtCorr(os)}</span></div>
+      <div class="row"><span class="row-name">Elle koyduğun ağırlıklar, test setinde</span>
+        <span class="row-val ${corrCls(om)}">${fmtCorr(om)}</span></div>
+      <div class="verdict ${vc}">
+        ${os==null ? 'Hesaplanamadı.' :
+          os < 0.05 ? '<b>Model örneklem dışında çöktü.</b> Eğitim setinde bulunan ilişki, yeni veriye taşınmadı — yani o ilişki büyük ölçüde geçmişe özgü gürültüymüş. Bu skoru ileriye dönük tahmin için kullanmak yanıltıcı olur.' :
+          os < 0.15 ? '<b>Örneklem dışında çok zayıf.</b> İlişki tamamen kaybolmamış ama pratik karar almak için yeterli değil. Rejim filtresi olarak bile marjinal.' :
+          '<b>Örneklem dışında da ayakta kaldı.</b> Bu, ilişkinin sadece geçmişe uydurma olmadığına dair gerçek bir işaret — yine de gücü sınırlı.'}
+      </div>
+      ${drop!=null ? `<div class="note">Eğitim → test: <b>${fmtCorr(ins)} → ${fmtCorr(os)}</b>. ${
+        drop > 0.15 ? 'Belirgin düşüş — aşırı uyum (overfitting) göstergesi.' :
+        drop > 0 ? 'Hafif düşüş, normal.' :
+        'Düşüş yok; model test döneminde daha iyi çalışmış.'}</div>` : ''}
+    </div>`;
+
+    // Isaret kararliligi
+    h += `<div class="section-title">Bileşen İşaret Kararlılığı</div><div class="panel"><div class="scroll"><table>
+      <tr><th>Bileşen</th><th>Eğitim</th><th>Test</th><th>Ağırlık*</th></tr>`;
+    d.comps.forEach((c,i)=>{
+      const tr = o.trainCorr[i].corr, te = o.testCorr[i].corr;
+      const stable = (tr!=null && te!=null && Math.sign(tr)===Math.sign(te) && Math.abs(te)>0.05);
+      h += `<tr><td class="label">${c.name} ${stable?'<span class="pos">✓</span>':'<span class="neg">✗</span>'}</td>
+        <td class="${corrCls(tr)}">${fmtCorr(tr)}</td>
+        <td class="${corrCls(te)}">${fmtCorr(te)}</td>
+        <td>${(o.fitW[i]*100).toFixed(0)}%</td></tr>`;
+    });
+    h += `</table></div>
+      <div class="note">✓ = işaret her iki dönemde de aynı yönde ve sıfırdan farklı. ✗ = ilişki dönemler arası kayboldu veya yön değiştirdi — bu bileşene güvenilmez.<br>
+      *Ağırlık sütunu, yalnızca eğitim setinden türetilen ağırlıklardır.</div></div>`;
+
+    // ---- QUINTIL TABLOSU (veriden cikarilan esikler) ----
+    const qNames = ['Q1 (en düşük)','Q2','Q3 (orta)','Q4','Q5 (en yüksek)'];
+    const cutTxt = o.cuts.map(c=>c.toFixed(2)).join(' / ');
+    h += `<div class="section-title">Beşli Dilim Analizi (eşikler veriden)</div>
+    <div class="panel">
+      <div class="note" style="margin-top:0;">
+        Kesim noktaları <b>yalnızca eğitim döneminin</b> dağılımından çıkarıldı: <b>${cutTxt}</b>.
+        Aşağıdaki getiriler ise modelin hiç görmediği test döneminden.
+      </div>
+      <div class="scroll"><table>
+        <tr><th>Dilim</th><th>Test ort.</th><th>Test medyan</th><th>Hafta</th><th>Eğitim ort.</th></tr>`;
+    for(let k=0;k<5;k++){
+      const a = d.avg(o.q_test[k]), md = median(o.q_test[k]), tr = d.avg(o.q_train[k]);
+      h += `<tr><td class="label">${qNames[k]}</td>
+        <td class="${a==null?'':a>0?'pos':'neg'}">${a==null?'—':(a>=0?'+':'')+a.toFixed(1)+'%'}</td>
+        <td class="${md==null?'':md>0?'pos':'neg'}">${md==null?'—':(md>=0?'+':'')+md.toFixed(1)+'%'}</td>
+        <td>${o.q_test[k].length}</td>
+        <td style="color:var(--muted);">${tr==null?'—':(tr>=0?'+':'')+tr.toFixed(1)+'%'}</td></tr>`;
+    }
+    h += `</table></div>`;
+
+    const monoPct = o.monoTot ? (o.monoOK/o.monoTot*100).toFixed(0) : '—';
+    const monoCls = o.monoTot && o.monoOK/o.monoTot >= 0.75 ? 'good' : o.monoTot && o.monoOK/o.monoTot >= 0.5 ? 'weak' : 'bad';
+    h += `<div class="verdict ${monoCls}">
+      <b>Monotonluk: ${o.monoOK}/${o.monoTot}</b> (${monoPct}%) — dilimden dilime geçerken getiri kaç kez arttı.
+      ${o.monoTot < 4 ? '<br><b>Dikkat:</b> Bazı dilimlerde test verisi yok, bu oran eksik karşılaştırmadan geliyor.' : ''}
+      ${o.monoTot && o.monoOK/o.monoTot >= 0.75 ? 'Düzenli artış var: sinyal seviyesi ile getiri arasında tutarlı bir ilişki mevcut.' :
+        o.monoTot && o.monoOK/o.monoTot >= 0.5 ? 'Kısmen düzenli. Sinyalin bazı aralıkları bilgi taşıyor, bazıları taşımıyor.' :
+        'Düzensiz. Sinyal seviyesi arttıkça getiri sistematik olarak artmıyor — ilişki doğrusal değil ya da gürültülü.'}
+    </div>
+    <div class="row"><span class="row-name">Spearman (sıra) korelasyonu, test setinde</span>
+      <span class="row-val ${corrCls(o.spearman)}">${fmtCorr(o.spearman)}</span></div>
+    <div class="note">Spearman, doğrusal olmayan ama tutarlı yönlü ilişkileri de yakalar. Pearson'dan belirgin yüksekse ilişki eğrisel demektir.<br>
+    Medyan sütunu önemli: ortalama birkaç aşırı haftadan etkilenebilir, medyan etkilenmez. İkisi ayrışıyorsa sinyal birkaç uç olaya dayanıyor olabilir.</div></div>`;
+  }
+
+  h += `<div class="section-title">Tüm Örneklem (referans, aşırı iyimser)</div>
+  <div class="panel">
+    <div class="row"><span class="row-name">Kompozit skor ↔ BTC 3 aylık ileri getiri</span>
+      <span class="row-val ${corrCls(cc)}">${fmtCorr(cc)}</span></div>
+    <div class="verdict ${vcls}">
+      Korelasyon <b>${fmtCorr(cc)}</b> — bu ilişki <b>${strength}</b>.
+      ${cc!=null && Math.abs(cc)<0.15 ? 'Yani mevcut ağırlıklarla bu gösterge BTC yönü hakkında pratikte bilgi taşımıyor.' :
+        cc!=null && cc<0 ? 'Dikkat: işaret NEGATİF — likidite arttıkça BTC sonraki 3 ayda daha kötü performans göstermiş. Beklentinin tersi.' :
+        'Pozitif yönde bir ilişki var, ancak korelasyon nedensellik değildir.'}
+    </div>
+    <div class="note">R² = ${cc!=null ? (cc*cc*100).toFixed(1)+'%' : '—'} — yani BTC getirisindeki değişkenliğin bu kadarı skorla açıklanabiliyor. Kalanı başka faktörler.</div>
+  </div>`;
+
+  // Bileşen bazında
+  h += `<div class="section-title">Bileşen Bazında Öngörü Gücü</div><div class="panel">`;
+  const sorted = [...d.compCorr].sort((a,b)=> Math.abs(b.corr||0)-Math.abs(a.corr||0));
+  for(const c of sorted){
+    h += `<div class="row"><span class="row-name">${c.name} <span style="color:var(--muted);font-size:10.5px;">(ağırlık ${c.w})</span></span>
+      <span class="row-val ${corrCls(c.corr)}">${fmtCorr(c.corr)}</span></div>`;
+  }
+  h += `<div class="note">En üstteki bileşen en çok bilgi taşıyan. Ağırlığı düşük ama korelasyonu yüksek bir bileşen varsa, ağırlıkları yeniden düşünmeye değer.</div></div>`;
+
+  // Korelasyon matrisi
+  h += `<div class="section-title">Bileşenler Arası Korelasyon</div><div class="panel"><div class="scroll"><table>
+    <tr><th></th>${d.comps.map(c=>`<th>${c.name.split(' ')[0]}</th>`).join('')}</tr>`;
+  d.comps.forEach((a,i)=>{
+    h += `<tr><td class="label">${a.name}</td>`;
+    d.matrix[i].forEach((v,j)=>{
+      const cls = i===j ? '' : corrCls(v);
+      h += `<td class="${cls}">${i===j?'—':fmtCorr(v)}</td>`;
+    });
+    h += `</tr>`;
+  });
+  h += `</table></div>
+    <div class="note">Birbiriyle yüksek korelasyonlu (|r| > 0.6) bileşenler aynı bilgiyi tekrar sayar — bu, o bilgiye istemeden fazla ağırlık verildiği anlamına gelir.</div></div>`;
+
+  // Sinyal bölgeleri
+  h += `<div class="section-title">Sinyal Bölgesine Göre Ortalama BTC Getirisi (3 ay)</div><div class="panel">`;
+  const bs = [
+    ['Skor > +0.5 (güçlü genişleme)', d.buckets.gucluPoz],
+    ['0 ile +0.5', d.buckets.zayifPoz],
+    ['−0.5 ile 0', d.buckets.zayifNeg],
+    ['Skor < −0.5 (güçlü daralma)', d.buckets.gucluNeg],
+  ];
+  for(const [name,arr] of bs){
+    const a = d.avg(arr);
+    h += `<div class="row"><span class="row-name">${name} <span style="color:var(--muted);font-size:10.5px;">(${arr.length} hafta)</span></span>
+      <span class="row-val ${a==null?'neu':a>0?'pos':'neg'}">${a==null?'—':(a>=0?'+':'')+a.toFixed(1)+'%'}</span></div>`;
+  }
+  h += `<div class="note">Beklenen davranış: yukarıdan aşağıya doğru getirilerin azalması. Sıralama karışıksa gösterge tutarlı çalışmıyor demektir. Az gözlemli bölgeler (&lt;20 hafta) güvenilmezdir.</div></div>`;
+
+  // Teshis
+  const gridStart = d.rows[0].date;
+  h += `<div class="section-title">Veri Teşhisi</div><div class="panel"><div class="scroll"><table>
+    <tr><th>Seri</th><th>İlk</th><th>Son</th><th>Adet</th></tr>`;
+  const sortedDiag = [...d.diag].sort((a,b)=> a.first<b.first?1:-1);
+  sortedDiag.forEach((s2,i)=>{
+    const binding = i===0 && s2.first!=='—';
+    h += `<tr><td class="label">${s2.name}${binding?' <span class="neg">← kısıtlayan</span>':''}</td>
+      <td>${s2.first}</td><td>${s2.last}</td><td>${s2.n}</td></tr>`;
+  });
+  h += `</table></div>
+    <div class="note">Test örneklemi <b>${gridStart}</b> tarihinde başlıyor. En geç başlayan seri örneklemi kısıtlar — o seri değiştirilebilirse test daha uzun geçmişi kapsar.</div></div>`;
+
+  h += `<div class="panel"><div class="note">
+    <b>Sınırlar:</b> Örneklem ${d.rows.length} hafta ve büyük ölçüde tek bir piyasa rejimini kapsıyor.
+    Haftalar birbiriyle örtüşen 3 aylık pencereler kullandığı için gözlemler bağımsız değil —
+    gerçek istatistiksel anlamlılık, ham gözlem sayısının ima ettiğinden düşüktür.
+    Bu test bir fikir verir, kesin kanıt sunmaz.
+  </div></div>`;
+
+  el.innerHTML = h;
+}
+showKeyBoxIfNeeded();
+</script>
+</body>
+</html>

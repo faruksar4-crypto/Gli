@@ -1,0 +1,9 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+# /api/proxy her iki platformda da ayni adres olsun
+[[redirects]]
+  from = "/api/proxy"
+  to = "/.netlify/functions/proxy"
+  status = 200
