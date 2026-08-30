@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Likidite Momentum İndeksi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Sora:wght@300;400;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{ --bg:#101C26; --panel:#16242F; --line:#233440; --ink:#EAE4D9; --dim:#8A9AA5; --faint:#5A6B77; --rise:#5FBFA0; --fall:#E0705A; --btc:#E8A33D; }
+*{box-sizing:border-box} html,body{margin:0;padding:0}
+body{ background:var(--bg); color:var(--ink); font-family:"Sora",system-ui,sans-serif; font-weight:300; -webkit-font-smoothing:antialiased; padding:0 0 56px; }
+.wrap{max-width:560px;margin:0 auto;padding:0 20px}
+.mast{display:flex;justify-content:space-between;align-items:baseline; padding:24px 0 16px;border-bottom:1px solid var(--line)}
+.mast .name{font-family:"DM Mono",monospace;font-size:11px; letter-spacing:.18em;text-transform:uppercase;color:var(--dim)}
+.mast .date{font-family:"DM Mono",monospace;font-size:11px;color:var(--faint)}
+.hero{padding:34px 0 30px}
+.kicker{font-family:"DM Mono",monospace;font-size:10.5px;letter-spacing:.16em; text-transform:uppercase;color:var(--dim);margin-bottom:14px}
+.big{font-family:"Instrument Serif",serif;font-weight:400; font-size:clamp(72px,24vw,124px);line-height:.84;letter-spacing:-.015em; font-variant-numeric:tabular-nums}
+.big.rise{color:var(--rise)} .big.fall{color:var(--fall)}
+.sub{font-size:15px;color:var(--ink);margin-top:18px;line-height:1.5;font-weight:300}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin:26px 0 10px; font-family:"DM Mono",monospace;font-size:10.5px;color:var(--dim);letter-spacing:.05em}
+.legend i{display:inline-block;width:16px;height:2px;vertical-align:middle; margin-right:6px;border-radius:2px}
+canvas{width:100%;height:210px;display:block}
+.ranges{display:flex;margin-top:14px;background:var(--panel);border-radius:9px;padding:3px}
+.ranges button{flex:1;appearance:none;background:transparent;border:0;padding:10px 4px; cursor:pointer;border-radius:7px;font-family:"DM Mono",monospace;font-size:11px; color:var(--dim);letter-spacing:.05em}
+.ranges button[aria-pressed="true"]{background:var(--line);color:var(--ink)}
+.sect{margin-top:38px}
+.sect h2{font-family:"DM Mono",monospace;font-size:10.5px;font-weight:500; letter-spacing:.18em;text-transform:uppercase;color:var(--dim); margin:0 0 6px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.hint{font-size:13px;color:var(--dim);line-height:1.6;margin:12px 0 4px;font-weight:300}
+.row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:14px; padding:15px 0;border-bottom:1px solid var(--line)}
+.row .who{font-size:15px}
+.row .meta{display:block;font-family:"DM Mono",monospace;font-size:10.5px; color:var(--faint);margin-top:4px;letter-spacing:.04em}
+.row .val{font-family:"Instrument Serif",serif;font-size:26px; font-variant-numeric:tabular-nums;text-align:right}
+.row .val small{font-family:"DM Mono",monospace;font-size:10px; color:var(--faint);display:block;margin-top:2px;letter-spacing:.04em}
+.rise{color:var(--rise)} .fall{color:var(--fall)}
+.wbar{height:3px;background:var(--line);border-radius:2px;margin-top:9px;overflow:hidden}
+.wbar div{height:100%;background:var(--dim);border-radius:2px}
+.cfg{margin-top:38px;padding-top:20px;border-top:1px solid var(--line)}
+.cfg label{display:block;font-size:13px;color:var(--dim);margin:16px 0 7px}
+.cfg input{width:100%;padding:13px 14px;background:var(--panel); border:1px solid var(--line);border-radius:8px;color:var(--ink); font-family:"DM Mono",monospace;font-size:13px}
+.cfg button{width:100%;margin-top:18px;padding:14px;background:var(--ink); color:var(--bg);border:0;border-radius:8px;cursor:pointer; font-family:"DM Mono",monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase}
+.foot{margin-top:34px;padding-top:16px;border-top:1px solid var(--line); font-family:"DM Mono",monospace;font-size:10px;color:var(--faint); line-height:2;letter-spacing:.04em}
+.load{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.16em; text-transform:uppercase;color:var(--faint);padding:36px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="mast"><span class="name">Likidite İvme İndeksi</span><span class="date" id="asOf">—</span></header>
+  <section class="hero">
+    <div class="kicker">3 Aylık Momentum (M) · Net CB Likiditesi</div>
+    <div class="big" id="big">—</div>
+    <div class="sub" id="sub"><em>hesaplanıyor</em></div>
+  </section>
+  <section>
+    <div class="legend" id="legend">
+      <span><i style="background:#5FBFA0"></i>İvme Pozitif (M > 0)</span>
+      <span><i style="background:#E0705A"></i>İvme Negatif (M < 0)</span>
+      <span><i style="background:#E8A33D"></i>BTC YoY %</span>
+    </div>
+    <canvas id="chart" width="1000" height="420"></canvas>
+    <div class="ranges" role="group">
+      <button data-years="1">1 yıl</button>
+      <button data-years="3" aria-pressed="true">3 yıl</button>
+      <button data-years="5">5 yıl</button>
+      <button data-years="0">Tümü</button>
+    </div>
+  </section>
+  <section class="sect">
+    <h2>Net Merkez Bankası Dağılımı</h2>
+    <div class="hint">YoY değişimler <b>kendi para biriminde</b> hesaplanır. Fed netleştirilmiştir (WALCL eksi TGA/RRP). RRP ve TGA oynaklığı önlemek için aylık ortalama alınır.</div>
+    <div id="rows"><div class="load">Veriler alınıyor</div></div>
+    <div id="alerts"></div>
+  </section>
+  <section class="cfg">
+    <h2>Ayarlar</h2>
+    <label>FRED API anahtarı</label>
+    <input id="cfgKey" type="text" autocomplete="off" spellcheck="false">
+    <label>Proxy adresi</label>
+    <input id="cfgPx" type="text" autocomplete="off" spellcheck="false">
+    <button id="cfgSave">Kaydet</button>
+  </section>
+  <footer class="foot">
+    FRED · WALCL, WTREGEN, RRPONTSYD, ECBASSETSW, JPNASSETS<br>
+    PBoC · Gömülü seri · <b>DİKKAT:</b> Resmi veri 2024-01'de başladığı için grafik şu an yalnızca ~17 aylık (2025-04 sonrası) momentumu gösterir.
+  </footer>
+</div>
+
+<script>
+const KEY_NAMES = ["fred_key"];
+const PX_NAMES  = ["proxy_base"];
+
+function readStore(names){ for(const n of names) try{ const v = (localStorage.getItem(n)||"").trim(); if(v) return v; }catch(e){} return ""; }
+function fredKey(){ return readStore(KEY_NAMES); }
+function proxyBase(){ return readStore(PX_NAMES).replace(/\/+$/,"") || "/api/proxy"; }
+function viaProxy(url){ return proxyBase() + "?url=" + encodeURIComponent(url); }
+function fredUrl(id){
+  const k = fredKey();
+  return viaProxy("https://api.stlouisfed.org/fred/series/observations?series_id=" + encodeURIComponent(id) + "&file_type=json" + (k ? "&api_key=" + encodeURIComponent(k) : ""));
+}
+
+const BANKS = {
+  fed:{id:"WALCL", cur:"USD", toUnit:1e6, label:"Fed (Net)", meta:"WALCL eksi TGA/RRP"},
+  ecb:{id:"ECBASSETSW", cur:"EUR", toUnit:1e6, label:"ECB", meta:"ECBASSETSW · euro"},
+  boj:{id:"JPNASSETS", cur:"JPY", toUnit:1e8, label:"BoJ", meta:"JPNASSETS · yen"},
+};
+
+const PBOC = {
+  cur:"CNY", toUnit:1e8, label:"PBoC", meta:"gömülü seri · yuan",
+  data:[
+    ["2024-01",456426.77],["2024-02",445693.9],["2024-03",438860.69],["2024-04",428425.22],
+    ["2024-05",429537.58],["2024-06",436546.79],["2024-07",436469.16],["2024-08",438897.54],
+    ["2024-09",455050.63],["2024-10",447357.48],["2024-11",453707.1],["2024-12",440513.31],
+    ["2025-01",466574.72],["2025-02",470205.33],["2025-03",455311.81],["2025-04",455203.33],
+    ["2025-05",450997.98],["2025-06",457823.75],["2025-07",459493.86],["2025-08",463254.06],
+    ["2025-09",471391.38],["2025-10",470626.61],["2025-11",472969.7],["2025-12",481591.34],
+    ["2026-01",493189.91],["2026-02",499862.79],["2026-03",491398.71],["2026-04",486327.5],
+    ["2026-05",483806.92],["2026-06",494334.98],["2026-07",502068.47]
+  ]
+};
+
+const DRAINS = { tga:{id:"WTREGEN", toUnit:1e6}, rrp:{id:"RRPONTSYD", toUnit:1e9} };
+const FX = { EUR:{id:"DEXUSEU", mode:"usdPerUnit"}, JPY:{id:"DEXJPUS", mode:"unitPerUsd"}, CNY:{id:"DEXCHUS", mode:"unitPerUsd"} };
+
+const BTC_SOURCES = [
+  {name:"Kraken", url:"https://api.kraken.com/0/public/OHLC?pair=XBTUSD&interval=10080",
+   parse(j){ const k = Object.keys(j.result||{}).find(x=>x!=="last"); return j.result[k].map(r=>[r[0]*1000, parseFloat(r[4])]); }}
+];
+
+function getSMA(arr, win, min) {
+    return arr.map((_, i, a) => {
+        let sum = 0, cnt = 0;
+        for (let j = Math.max(0, i - win + 1); j <= i; j++) if (a[j] != null && !isNaN(a[j])) { sum += a[j]; cnt++; }
+        return cnt >= min ? sum / cnt : null;
+    });
+}
+function getDiff(arr, lag) { return arr.map((v, i, a) => (i >= lag && v != null && a[i-lag] != null) ? v - a[i-lag] : null); }
+
+const cache = new Map();
+async function getSeries(id){
+  if(cache.has(id)) return cache.get(id);
+  const r = await fetch(fredUrl(id)); 
+  if(!r.ok) throw new Error(id + " · HTTP " + r.status);
+  const j = await r.json();
+  const obs = j.observations || j.data || j; cache.set(id, obs); return obs;
+}
+
+const mKey = d => d.slice(0,7);
+function monthlyLast(obs){
+  const m = new Map();
+  for(const o of obs){ const v = parseFloat(o.value); if(isFinite(v)) m.set(mKey(o.date), v); }
+  return m;
+}
+function monthlyAvg(obs){
+  const a = new Map();
+  for(const o of obs){
+    const v = parseFloat(o.value); if(!isFinite(v)) continue;
+    const k = mKey(o.date), x = a.get(k) || {s:0,n:0}; x.s+=v; x.n++; a.set(k,x);
+  }
+  const out = new Map();
+  for(const [k,x] of a) out.set(k, x.s/x.n);
+  return out;
+}
+function prevYear(month){ const [y,m] = month.split("-").map(Number); return (y-1) + "-" + String(m).padStart(2,"0"); }
+
+async function buildBtc(){
+  for(const src of BTC_SOURCES) try{
+    const r = await fetch(viaProxy(src.url)); const pairs = src.parse(await r.json());
+    pairs.sort((a,b)=>a[0]-b[0]); const m = new Map();
+    for(const [ms,c] of pairs) if(isFinite(c)) m.set(new Date(ms).toISOString().slice(0,7), c);
+    return {map:m, source:src.name};
+  }catch(e){} return null;
+}
+
+async function build(){
+  const fx = {};
+  for(const [cur,cfg] of Object.entries(FX)) fx[cur] = monthlyLast(await getSeries(cfg.id));
+  const rate = (cur,m)=>{
+    if(cur === "USD") return 1; const v = fx[cur]?.get(m);
+    if(v == null || v <= 0) return null; return FX[cur].mode === "usdPerUnit" ? v : 1/v;
+  };
+
+  const nat = {};
+  const walcl = monthlyLast(await getSeries(BANKS.fed.id));
+  const tga = monthlyAvg(await getSeries(DRAINS.tga.id)); 
+  const rrp = monthlyAvg(await getSeries(DRAINS.rrp.id)); 
+  
+  const fedNet = new Map();
+  for(const [m, v] of walcl) {
+    const t_val = tga.get(m); const r_val = rrp.get(m);
+    if (t_val == null || r_val == null) continue; 
+    fedNet.set(m, v - (t_val * (DRAINS.tga.toUnit / BANKS.fed.toUnit)) - (r_val * (DRAINS.rrp.toUnit / BANKS.fed.toUnit)));
+  }
+  nat.fed = fedNet;
+  nat.ecb = monthlyLast(await getSeries(BANKS.ecb.id));
+  nat.boj = monthlyLast(await getSeries(BANKS.boj.id));
+  nat.pboc = new Map(PBOC.data);
+  const defs = {...BANKS, pboc:PBOC};
+  const months = [...nat.fed.keys()].sort();
+  
+  const data = months.map(m => {
+    const py = prevYear(m); const row = { month: m, usd: {}, yoy: {} };
+    for (const k of Object.keys(defs)) {
+      const now = nat[k].get(m), then = nat[k].get(py), r = rate(defs[k].cur, m);
+      if (now != null && r != null) row.usd[k] = (now * defs[k].toUnit * r) / 1e12;
+      if (now != null && then != null && then !== 0) row.yoy[k] = (now / then - 1) * 100;
+    }
+    return row;
+  });
+
+  const keys = Object.keys(defs); const usdSeries = {};
+  keys.forEach(k => { usdSeries[k] = getSMA(data.map(d => d.usd[k]), 12, 1); });
+
+  const gli_yoy = data.map((d, i) => {
+    let totalUsd = 0, valid = true;
+    keys.forEach(k => { if (usdSeries[k][i] == null || d.yoy[k] == null) valid = false; else totalUsd += usdSeries[k][i]; });
+    if (!valid || totalUsd === 0) return null;
+    let yoySum = 0; keys.forEach(k => { yoySum += (usdSeries[k][i] / totalUsd) * d.yoy[k]; });
+    return { val: yoySum, totalUsd, items: keys.map(k=>({k, yoy:d.yoy[k], w:usdSeries[k][i]/totalUsd})) };
+  });
+
+  const yoyVals = gli_yoy.map(y => y ? y.val : null);
+  const m_vals = getDiff(yoyVals, 3);
+  
+  const colors = m_vals.map(m => {
+    if (m == null) return "rgba(90, 107, 119, 0.5)";
+    return m > 0 ? "#5FBFA0" : "#E0705A";
+  });
+
+  const out = [];
+  for (let i = 0; i < data.length; i++) {
+    if (gli_yoy[i] != null && m_vals[i] != null) {
+      out.push({ month: data[i].month, combined: gli_yoy[i].val, m: m_vals[i], usdTotal: gli_yoy[i].totalUsd, items: gli_yoy[i].items, color: colors[i] });
+    }
+  }
+  return out;
+}
+
+let rows = [], years = 3, btcMap = null;
+function btcYoy(month){
+  if(!btcMap) return null;
+  const a = btcMap.get(month), b = btcMap.get(prevYear(month));
+  if(a == null || b == null || b === 0) return null; return (a/b - 1) * 100;
+}
+
+function draw(){
+  const cv = document.getElementById("chart"); const dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth, H = 210; cv.width = W*dpr; cv.height = H*dpr;
+  const c = cv.getContext("2d"); c.setTransform(dpr,0,0,dpr,0,0); c.clearRect(0,0,W,H);
+  const vis = years ? rows.slice(-years*12) : rows; if(vis.length < 2) return;
+
+  const lv = vis.map(r=>r.m); let lo = Math.min(...lv,0), hi = Math.max(...lv,0);
+  const lp = (hi-lo)*0.18 || 1; lo -= lp; hi += lp;
+  const bv = vis.map(r=>btcYoy(r.month)).filter(v=>v!=null); const hasB = bv.length > 2;
+  let blo=0, bhi=1;
+  if(hasB){ blo = Math.min(...bv,0); bhi = Math.max(...bv,0); const bp = (bhi-blo)*0.14 || 1; blo -= bp; bhi += bp; }
+
+  const L = 40, R = W - (hasB ? 46 : 40), T = 14, B = H - 24;
+  const X = i => L + (i/(vis.length-1))*(R-L);
+  const Y = v => B - ((v-lo)/(hi-lo))*(B-T); const YB = v => B - ((v-blo)/(bhi-blo))*(B-T);
+
+  c.font = "10px 'DM Mono', monospace"; c.textBaseline = "middle";
+  for(let i=0;i<=3;i++){
+    const v = lo + (i/3)*(hi-lo), y = Y(v);
+    c.strokeStyle = "#233440"; c.lineWidth = 1; c.setLineDash([2,5]); c.beginPath(); c.moveTo(L,y); c.lineTo(R,y); c.stroke();
+    c.fillStyle = "#5A6B77"; c.textAlign = "right"; c.fillText((v>=0?"+":"")+v.toFixed(2), L-8, y);
+    if(hasB){ const b = blo + (i/3)*(bhi-blo); c.fillStyle = "rgba(232,163,61,.75)"; c.textAlign = "left"; c.fillText((b>=0?"+":"")+b.toFixed(0), R+7, y); }
+  }
+  c.setLineDash([]);
+  if(lo < 0 && hi > 0){ const zy = Y(0); c.strokeStyle = "rgba(234,228,217,.34)"; c.lineWidth = 1; c.beginPath(); c.moveTo(L,zy); c.lineTo(R,zy); c.stroke(); }
+  c.lineJoin = "round"; c.lineCap = "round";
+
+  if(hasB){
+    c.strokeStyle = "rgba(232,163,61,.85)"; c.lineWidth = 1.4; c.beginPath(); let on = false;
+    vis.forEach((r,i)=>{ const v = btcYoy(r.month); if(v == null){ on = false; return; } on ? c.lineTo(X(i),YB(v)) : (c.moveTo(X(i),YB(v)), on = true); });
+    c.stroke();
+  }
+
+  c.lineWidth = 2.4; let prevValid = null;
+  vis.forEach((r,i)=>{
+    if (r.m == null) { prevValid = null; return; }
+    if (prevValid != null) { c.beginPath(); c.moveTo(X(i-1), Y(vis[i-1].m)); c.lineTo(X(i), Y(r.m)); c.strokeStyle = r.color; c.stroke(); }
+    prevValid = r;
+  });
+
+  const last = vis[vis.length-1]; c.fillStyle = last.color;
+  c.beginPath(); c.arc(X(vis.length-1), Y(last.m), 4, 0, Math.PI*2); c.fill();
+  c.fillStyle = "#5A6B77"; c.textBaseline = "top"; c.textAlign = "left"; c.fillText(vis[0].month, L, B+8); c.textAlign = "right"; c.fillText(last.month, R, B+8);
+}
+
+function pct(v,d){ return (v>=0?"+":"−") + Math.abs(v).toFixed(d==null?1:d); }
+
+function render(){
+  const last = rows[rows.length-1]; const up = last.m >= 0;
+  document.getElementById("asOf").textContent = last.month;
+  const big = document.getElementById("big"); big.innerHTML = pct(last.m, 2) + '<span class="pc"></span>';
+  big.className = "big " + (up ? "rise" : "fall"); big.style.color = last.color;
+  document.getElementById("sub").innerHTML = up
+    ? `Likidite momentumu <b>pozitif</b> (M > 0) ivmeleniyor.`
+    : `Likidite momentumu <b>negatif</b> (M < 0) yavaşlıyor.`;
+  const defs = {...BANKS, pboc:PBOC};
+  document.getElementById("rows").innerHTML = last.items.slice().sort((a,b)=> b.w - a.w).map(it=>{
+      const d = defs[it.k];
+      return `<div class="row"><span class="who">${d.label}<span class="meta">${d.meta} · ağırlık %${(it.w*100).toFixed(0)}</span><span class="wbar"><div style="width:${(it.w*100).toFixed(1)}%"></div></span></span><span class="val ${it.yoy>=0?"rise":"fall"}">${pct(it.yoy)}%<small>yıllık</small></span></div>`;
+  }).join("");
+  draw();
+}
+
+async function load(){
+  try{
+    rows = await build(); if(!rows.length) throw new Error("Yeterli ortak ay bulunamadı."); render();
+    try{ const b = await buildBtc(); if (b) { btcMap = b.map; draw(); } }catch(e){}
+  }catch(e){
+    document.getElementById("big").textContent = "—"; document.getElementById("sub").innerHTML = "<em>veri yok</em>";
+    document.getElementById("rows").innerHTML = ""; document.getElementById("alerts").innerHTML = `<div class="alert"><b>Veri gelmedi</b>${e.message}</div>`;
+  }
+}
+
+document.querySelectorAll(".ranges button").forEach(b=>{
+  b.onclick = ()=>{ document.querySelectorAll(".ranges button").forEach(x=>x.setAttribute("aria-pressed","false")); b.setAttribute("aria-pressed","true"); years = +b.dataset.years; draw(); };
+});
+let rt; addEventListener("resize", ()=>{ clearTimeout(rt); rt = setTimeout(draw,150); });
+
+(function(){
+  document.getElementById("cfgKey").value = fredKey(); document.getElementById("cfgPx").value = readStore(PX_NAMES);
+  document.getElementById("cfgSave").onclick = ()=>{ try{ localStorage.setItem("fred_key", document.getElementById("cfgKey").value.trim()); localStorage.setItem("proxy_base", document.getElementById("cfgPx").value.trim()); }catch(e){} location.reload(); };
+})();
+
+if(!fredKey()){ document.getElementById("sub").innerHTML = "<em>anahtar gerekli</em>"; document.getElementById("rows").innerHTML = ""; } else load();
+</script>
+</body>
+</html>
