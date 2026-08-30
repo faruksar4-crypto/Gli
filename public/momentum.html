@@ -43,13 +43,16 @@ canvas{width:100%;height:210px;display:block}
 .cfg button{width:100%;margin-top:18px;padding:14px;background:var(--ink); color:var(--bg);border:0;border-radius:8px;cursor:pointer; font-family:"DM Mono",monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase}
 .foot{margin-top:34px;padding-top:16px;border-top:1px solid var(--line); font-family:"DM Mono",monospace;font-size:10px;color:var(--faint); line-height:2;letter-spacing:.04em}
 .load{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.16em; text-transform:uppercase;color:var(--faint);padding:36px 0}
+.stress-now{font-family:"Instrument Serif",serif;font-size:46px;line-height:1; font-variant-numeric:tabular-nums;margin:18px 0 6px}
+.stress-now small{font-family:"DM Mono",monospace;font-size:11px;color:var(--faint); letter-spacing:.08em;margin-left:8px}
+#stressChart{height:120px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header class="mast"><span class="name">Likidite İvme İndeksi</span><span class="date" id="asOf">—</span></header>
   <section class="hero">
-    <div class="kicker">3 Aylık Momentum (M) · Net CB Likiditesi</div>
+    <div class="kicker">Kadran 1 · 3 Aylık Momentum (M) · Net CB Likiditesi</div>
     <div class="big" id="big">—</div>
     <div class="sub" id="sub"><em>hesaplanıyor</em></div>
   </section>
@@ -68,6 +71,14 @@ canvas{width:100%;height:210px;display:block}
     </div>
   </section>
   <section class="sect">
+    <h2>Kadran 2 · Repo Stresi</h2>
+    <div class="hint">SOFR eksi IORB, baz puan. Bu <b>bağımsız</b> bir ölçüm: bilanço büyüklüğünü değil, rezervlerin <b>kıtlığını</b> gösterir. Negatif/sıfıra yakın = rezerv bol. Yukarı gidiyorsa repo piyasası sıkışıyor.</div>
+    <div class="stress-now" id="stressNow">—</div>
+    <canvas id="stressChart" width="1000" height="240"></canvas>
+    <div class="hint" id="stressNote"></div>
+  </section>
+
+  <section class="sect">
     <h2>Net Merkez Bankası Dağılımı</h2>
     <div class="hint">YoY değişimler <b>kendi para biriminde</b> hesaplanır. Fed netleştirilmiştir (WALCL eksi TGA/RRP). RRP ve TGA oynaklığı önlemek için aylık ortalama alınır.</div>
     <div id="rows"><div class="load">Veriler alınıyor</div></div>
@@ -82,9 +93,10 @@ canvas{width:100%;height:210px;display:block}
     <button id="cfgSave">Kaydet</button>
   </section>
   <footer class="foot">
-    FRED · WALCL, WTREGEN, RRPONTSYD, ECBASSETSW, JPNASSETS<br>
+    FRED · WALCL, WTREGEN, RRPONTSYD, ECBASSETSW, JPNASSETS, SOFR, IORB<br>
     PBoC · gömülü seri, resmi bilanço tabloları (2019-01 →)<br>
-    Momentum 2020-04'te başlar. Z-Skor 36 aylık pencere (min 18 gözlem); ilk aylar gri çizilir.
+    Momentum 2020-04'te başlar. Z-Skor 36 aylık pencere (min 18 gözlem); ilk aylar gri çizilir.<br>
+    İki kadran ayrı ölçer, toplanmaz. Aynı yönü göstermeleri teyit, ayrışmaları soru işaretidir.
   </footer>
 </div>
 
@@ -322,6 +334,79 @@ function draw(){
   c.fillStyle = "#5A6B77"; c.textBaseline = "top"; c.textAlign = "left"; c.fillText(vis[0].month, L, B+8); c.textAlign = "right"; c.fillText(last.month, R, B+8);
 }
 
+/* ── Kadran 2: repo stresi (SOFR − IORB, günlük) ── */
+let stress = [];
+
+async function buildStress(){
+  const raw = obs => { const m = new Map();
+    for(const o of obs){ const v = parseFloat(o.value); if(isFinite(v)) m.set(o.date, v); } return m; };
+  const sofr = raw(await getSeries("SOFR"));
+  const iorb = raw(await getSeries("IORB"));
+  const out = [];
+  for(const [d, s] of sofr){
+    const i = iorb.get(d);
+    if(i != null) out.push({date:d, bp:(s - i) * 100});
+  }
+  out.sort((a,b)=> a.date < b.date ? -1 : 1);
+  return out.slice(-180);
+}
+
+function drawStress(){
+  const cv = document.getElementById("stressChart"); if(!cv || stress.length < 2) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth, H = 120; cv.width = W*dpr; cv.height = H*dpr;
+  const c = cv.getContext("2d"); c.setTransform(dpr,0,0,dpr,0,0); c.clearRect(0,0,W,H);
+
+  const vals = stress.map(s=>s.bp);
+  let lo = Math.min(...vals, 0), hi = Math.max(...vals, 0);
+  const pad = (hi-lo)*0.2 || 1; lo -= pad; hi += pad;
+  const L = 40, R = W - 10, T = 10, B = H - 20;
+  const X = i => L + (i/(stress.length-1))*(R-L);
+  const Y = v => B - ((v-lo)/(hi-lo))*(B-T);
+
+  c.font = "10px 'DM Mono', monospace"; c.textBaseline = "middle"; c.textAlign = "right";
+  for(let i=0;i<=2;i++){
+    const v = lo + (i/2)*(hi-lo), y = Y(v);
+    c.strokeStyle = "#233440"; c.lineWidth = 1; c.setLineDash([2,5]);
+    c.beginPath(); c.moveTo(L,y); c.lineTo(R,y); c.stroke();
+    c.fillStyle = "#5A6B77"; c.fillText((v>=0?"+":"")+v.toFixed(0), L-8, y);
+  }
+  c.setLineDash([]);
+  if(lo < 0 && hi > 0){
+    const zy = Y(0); c.strokeStyle = "rgba(234,228,217,.34)"; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(L,zy); c.lineTo(R,zy); c.stroke();
+  }
+
+  c.strokeStyle = "#8A9AA5"; c.lineWidth = 1.8; c.lineJoin = "round"; c.lineCap = "round";
+  c.beginPath();
+  stress.forEach((s,i)=> i ? c.lineTo(X(i),Y(s.bp)) : c.moveTo(X(i),Y(s.bp)));
+  c.stroke();
+
+  const lastS = stress[stress.length-1];
+  c.fillStyle = "#EAE4D9";
+  c.beginPath(); c.arc(X(stress.length-1), Y(lastS.bp), 3.5, 0, Math.PI*2); c.fill();
+
+  c.fillStyle = "#5A6B77"; c.textBaseline = "top"; c.textAlign = "left";
+  c.fillText(stress[0].date, L, B+6);
+  c.textAlign = "right"; c.fillText(lastS.date, R, B+6);
+}
+
+function renderStress(){
+  const lastS = stress[stress.length-1];
+  const bp = lastS.bp;
+  const el = document.getElementById("stressNow");
+  el.innerHTML = `${bp>=0?"+":"−"}${Math.abs(bp).toFixed(1)}<small>BAZ PUAN · ${lastS.date}</small>`;
+  el.style.color = bp > 5 ? "var(--fall)" : (bp > 0 ? "var(--ink)" : "var(--rise)");
+
+  const win = stress.slice(-60).map(s=>s.bp);
+  const ort = win.reduce((a,b)=>a+b,0) / win.length;
+  const yon = bp > ort + 1 ? "son 60 günün ortalamasının üzerinde" :
+              bp < ort - 1 ? "son 60 günün ortalamasının altında" : "son 60 günün ortalamasına yakın";
+  document.getElementById("stressNote").textContent =
+    `60 günlük ortalama ${ort>=0?"+":"−"}${Math.abs(ort).toFixed(1)} bp. Güncel değer ${yon}.`;
+  drawStress();
+}
+
 function pct(v,d){ return (v>=0?"+":"−") + Math.abs(v).toFixed(d==null?1:d); }
 
 function render(){
@@ -348,6 +433,10 @@ function render(){
 async function load(){
   try{
     rows = await build(); if(!rows.length) throw new Error("Yeterli ortak ay bulunamadı."); render();
+    try{ stress = await buildStress(); if(stress.length > 1) renderStress(); }catch(e){
+      document.getElementById("stressNow").textContent = "—";
+      document.getElementById("stressNote").textContent = "SOFR/IORB verisi alınamadı.";
+    }
     try{ const b = await buildBtc(); if (b) { btcMap = b.map; draw(); } }catch(e){}
   }catch(e){
     document.getElementById("big").textContent = "—"; document.getElementById("sub").innerHTML = "<em>veri yok</em>";
@@ -358,7 +447,7 @@ async function load(){
 document.querySelectorAll(".ranges button").forEach(b=>{
   b.onclick = ()=>{ document.querySelectorAll(".ranges button").forEach(x=>x.setAttribute("aria-pressed","false")); b.setAttribute("aria-pressed","true"); years = +b.dataset.years; draw(); };
 });
-let rt; addEventListener("resize", ()=>{ clearTimeout(rt); rt = setTimeout(draw,150); });
+let rt; addEventListener("resize", ()=>{ clearTimeout(rt); rt = setTimeout(()=>{ draw(); drawStress(); },150); });
 
 (function(){
   document.getElementById("cfgKey").value = fredKey(); document.getElementById("cfgPx").value = readStore(PX_NAMES);
