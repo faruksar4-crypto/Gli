@@ -263,7 +263,9 @@ function parseCsv(text){
   });
 }
 
-async function buildBis(){
+/* Doğrudan BIS bazı ağlardan 403 dönebiliyor (Cloudflare kullanıcı ajanı
+   veya proxy'deki alan adı listesi). DBnomics aynı BIS verisini yansıtır. */
+async function bisFromBis(){
   const r = await fetch(viaProxy(BIS.url));
   if(!r.ok) throw new Error("HTTP " + r.status);
   const recs = parseCsv(await r.text());
@@ -271,39 +273,70 @@ async function buildBis(){
 
   const cols = Object.keys(recs[0]);
   const find = re => cols.find(c => re.test(c));
-  const cTime = find(/TIME_PERIOD/i);
-  const cVal  = find(/OBS_VALUE/i);
+  const cTime = find(/TIME_PERIOD/i), cVal = find(/OBS_VALUE/i);
   const cCty  = find(/BORROWERS_CTY/i) || find(/Borrowers.*country/i);
-  if(!cTime || !cVal) throw new Error("beklenmeyen sütunlar: " + cols.slice(0,6).join(", "));
+  if(!cTime || !cVal) throw new Error("beklenmeyen sütunlar");
 
-  // "outside" içeren ülke etiketini seç; yoksa en çok gözlemi olanı
   const groups = new Map();
   for(const rec of recs){
     const k = cCty ? rec[cCty] : "all";
     if(!groups.has(k)) groups.set(k, []);
     groups.get(k).push(rec);
   }
-  let pick = null, pickName = "";
-  for(const [k,v] of groups){
-    if(/outside|non-?resident/i.test(k)){ pick = v; pickName = k; break; }
-  }
-  if(!pick){
-    let best = 0;
-    for(const [k,v] of groups) if(v.length > best){ best = v.length; pick = v; pickName = k; }
-  }
+  let pick = null, name = "";
+  for(const [k,v] of groups) if(/outside|non-?resident/i.test(k)){ pick = v; name = k; break; }
+  if(!pick){ let b=0; for(const [k,v] of groups) if(v.length>b){ b=v.length; pick=v; name=k; } }
   if(!pick) throw new Error("seri seçilemedi");
 
-  // çeyrek -> ay (çeyreğin son ayı), sonra ileriye taşı
   const q = new Map();
   for(const rec of pick){
-    const t = rec[cTime], v = parseFloat(rec[cVal]);
-    const m = /^(\d{4})-?Q([1-4])$/.exec(t);
-    if(!m || !isFinite(v)) continue;
-    q.set(m[1] + "-" + String(+m[2]*3).padStart(2,"0"), v);
+    const m = /^(\d{4})-?Q([1-4])$/.exec(rec[cTime]);
+    const v = parseFloat(rec[cVal]);
+    if(m && isFinite(v)) q.set(m[1]+"-"+String(+m[2]*3).padStart(2,"0"), v);
   }
   if(q.size < 4) throw new Error("yetersiz gözlem");
+  return {map:q, name, via:"BIS"};
+}
 
-  return {map:q, name:pickName, groups:[...groups.keys()]};
+async function bisFromDbnomics(){
+  const url = "https://api.db.nomics.world/v22/series/BIS/WS_GLI"
+    + "?dimensions=" + encodeURIComponent(JSON.stringify({CURR_DENOM:["USD"]}))
+    + "&observations=1&limit=200";
+  const r = await fetch(viaProxy(url));
+  if(!r.ok) throw new Error("HTTP " + r.status);
+  const j = await r.json();
+  const docs = j?.series?.docs;
+  if(!Array.isArray(docs) || !docs.length) throw new Error("seri yok");
+
+  // yıllık % değişim serisi: kodu .771 ile biten, adı "outside" içeren
+  const score = d => {
+    let s = 0;
+    if(/\.771$/.test(d.series_code||"")) s += 4;
+    if(/outside|non-?resident/i.test(d.series_name||"")) s += 3;
+    if(/growth|annual change|per cent|%/i.test(d.series_name||"")) s += 1;
+    return s;
+  };
+  const best = docs.slice().sort((a,b)=> score(b)-score(a))[0];
+  if(score(best) < 4) throw new Error("uygun seri bulunamadı");
+
+  const per = best.period || [], val = best.value || [];
+  const q = new Map();
+  for(let i=0;i<per.length;i++){
+    const m = /^(\d{4})-?Q([1-4])$/.exec(per[i]);
+    const v = Number(val[i]);
+    if(m && isFinite(v)) q.set(m[1]+"-"+String(+m[2]*3).padStart(2,"0"), v);
+  }
+  if(q.size < 4) throw new Error("yetersiz gözlem");
+  return {map:q, name:best.series_name || best.series_code, via:"DBnomics"};
+}
+
+async function buildBis(){
+  const errs = [];
+  for(const fn of [bisFromBis, bisFromDbnomics]){
+    try{ return await fn(); }
+    catch(e){ errs.push(fn.name.replace("bisFrom","") + ": " + e.message); }
+  }
+  throw new Error(errs.join(" · "));
 }
 
 const BTC_SOURCES = [
@@ -627,7 +660,7 @@ async function load(){
       bisMap = bis.map;
       const last = [...bis.map.entries()].pop();
       document.getElementById("bis").innerHTML = `<div class="row">
-        <span class="who">Sınır ötesi dolar kredisi<span class="meta">${bis.name} · ${last[0]} · çeyreklik</span></span>
+        <span class="who">Sınır ötesi dolar kredisi<span class="meta">${bis.name} · ${last[0]} · çeyreklik · ${bis.via}</span></span>
         <span class="val ${last[1]>=0?"rise":"fall"}">${pct(last[1])}%<small>yıllık</small></span>
       </div>`;
       document.getElementById("legend").insertAdjacentHTML("beforeend",
