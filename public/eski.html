@@ -372,22 +372,60 @@ async function buildCore(){
   });
 }
 
-/* BTC — Binance aylık mumlar. Anahtar gerekmez, 2017'ye kadar tek istekte gelir.
-   Proxy aynı ?url= biçimini kullandığı için ek ayar yok. */
-async function buildBtc(){
-  const target = "https://api.binance.com/api/v3/klines"
-    + "?symbol=BTCUSDT&interval=1M&limit=1000";
-  const r = await fetch(proxyBase() + "?url=" + encodeURIComponent(target));
-  if(!r.ok) throw new Error("Binance HTTP " + r.status);
-  const rows = await r.json();
-  if(!Array.isArray(rows)) throw new Error("Beklenmeyen biçim");
-  const m = new Map();
-  for(const k of rows){
-    const month = new Date(k[0]).toISOString().slice(0,7);
-    const close = parseFloat(k[4]);
-    if(isFinite(close)) m.set(month, close);
+/* BTC — anahtarsız kaynaklar, sırayla denenir.
+   Binance Cloudflare IP'lerini engellediği için (403) listede yok. */
+const BTC_SOURCES = [
+  {
+    name:"Kraken",
+    url:"https://api.kraken.com/0/public/OHLC?pair=XBTUSD&interval=10080",
+    parse(j){
+      if(j.error && j.error.length) throw new Error(j.error.join(","));
+      const key = Object.keys(j.result || {}).find(k => k !== "last");
+      if(!key) throw new Error("veri yok");
+      return j.result[key].map(r => [r[0]*1000, parseFloat(r[4])]);
+    }
+  },
+  {
+    name:"Bitstamp",
+    url:"https://www.bitstamp.net/api/v2/ohlc/btcusd/?step=259200&limit=1000",
+    parse(j){
+      const o = j?.data?.ohlc;
+      if(!Array.isArray(o)) throw new Error("veri yok");
+      return o.map(r => [Number(r.timestamp)*1000, parseFloat(r.close)]);
+    }
+  },
+  {
+    name:"Coinbase",
+    url:"https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=86400",
+    parse(j){
+      if(!Array.isArray(j)) throw new Error("veri yok");
+      return j.map(r => [r[0]*1000, parseFloat(r[4])]);
+    }
   }
-  return m;
+];
+
+async function buildBtc(){
+  const problems = [];
+  for(const src of BTC_SOURCES){
+    try{
+      const r = await fetch(proxyBase() + "?url=" + encodeURIComponent(src.url));
+      if(!r.ok) throw new Error("HTTP " + r.status);
+      const pairs = src.parse(await r.json());
+      if(!pairs.length) throw new Error("boş");
+
+      pairs.sort((a,b)=> a[0]-b[0]);           // eskiden yeniye
+      const m = new Map();
+      for(const [ms,close] of pairs){
+        if(!isFinite(close)) continue;
+        m.set(new Date(ms).toISOString().slice(0,7), close);   // ayın son kapanışı
+      }
+      if(m.size < 6) throw new Error("yetersiz geçmiş");
+      return {map:m, source:src.name};
+    }catch(e){
+      problems.push(`${src.name}: ${e.message}`);
+    }
+  }
+  throw new Error(problems.join(" · "));
 }
 
 async function buildSimple(cfg){
@@ -650,9 +688,10 @@ async function load(){
     renderCore(core);
 
     try{
-      btcMap = await buildBtc();
+      const btc = await buildBtc();
+      btcMap = btc.map;
       document.getElementById("chartLegend").innerHTML =
-        'Likidite <b style="color:#2F5D50">—</b> · BTC <b style="color:#9C4A2F">—</b>';
+        'Likidite <b style="color:#2F5D50">—</b> · BTC <b style="color:#9C4A2F">—</b> · ' + btc.source;
       drawChart();
     }catch(e){
       document.getElementById("chartLegend").textContent =
