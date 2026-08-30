@@ -330,9 +330,12 @@ function render(){
   const big = document.getElementById("big"); big.innerHTML = pct(last.m, 2);
   big.className = "big " + (up ? "rise" : "fall"); big.style.color = last.color;
 
-  const zTxt = last.z != null ? ` Z-Skor: ${pct(last.z, 2)}` : " (z-skor ısınıyor)";
+  const zTxt = last.z != null ? `Z-Skor ${pct(last.z, 2)}` : "Z-Skor ısınıyor";
+  const durum = last.combined >= 0
+    ? (up ? "Genişleme hızlanıyor." : "Genişleme yavaşlıyor.")
+    : (up ? "Daralma yavaşlıyor." : "Daralma hızlanıyor.");
   document.getElementById("sub").innerHTML =
-    (up ? `Likidite momentumu <b>pozitif</b> (M > 0).` : `Likidite momentumu <b>negatif</b> (M < 0).`) + zTxt;
+    `Birleşik YoY <b>${pct(last.combined, 2)}%</b> · ${zTxt}<br>${durum}`;
 
   const defs = {...BANKS, pboc:PBOC};
   document.getElementById("rows").innerHTML = last.items.slice().sort((a,b)=> b.w - a.w).map(it=>{
