@@ -156,6 +156,12 @@ canvas{width:100%;height:210px;display:block}
     </div>
   </section>
 
+  <section class="sect">
+    <h2>BIS · farklı bir likidite tanımı</h2>
+    <div class="hint">Merkez bankası bilançosu değil: ABD dışındaki banka-dışı borçlulara açılan <b>sınır ötesi dolar kredisi</b> — banka kredileri artı uluslararası tahvil ihraçları. Howell'ın ölçtüğü katmana çok daha yakın. Çeyreklik ve birkaç ay gecikmeli.</div>
+    <div id="bis"><div class="load">Alınıyor</div></div>
+  </section>
+
   <section class="cfg">
     <h2 style="font-family:'DM Mono',monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:#8A9AA5;margin:0 0 6px;padding-bottom:10px;border-bottom:1px solid #233440">Ayarlar</h2>
     <label for="cfgKey">FRED API anahtarı</label>
@@ -168,7 +174,7 @@ canvas{width:100%;height:210px;display:block}
   <footer class="foot">
     FRED · WALCL, ECBASSETSW, JPNASSETS, WTREGEN, RRPONTSYD<br>
     PBoC · gömülü aylık seri · BTC · Kraken / Bitstamp / Coinbase<br>
-    Kurlar yalnızca ağırlıklandırmada kullanılır, büyüme oranlarında değil
+    BIS · WS_GLI sınır ötesi kredi (stats.bis.org)<br>\n    Kurlar yalnızca ağırlıklandırmada kullanılır, büyüme oranlarında değil
   </footer>
 
 </div>
@@ -225,6 +231,80 @@ const FX = {
   JPY:{id:"DEXJPUS", mode:"unitPerUsd"},
   CNY:{id:"DEXCHUS", mode:"unitPerUsd"}
 };
+
+/* BIS küresel likidite göstergesi — sınır ötesi dolar kredisi.
+   Merkez bankası bilançosundan tamamen farklı bir likidite tanımı:
+   banka kredileri + uluslararası borçlanma senetleri, ABD dışındaki
+   banka-dışı borçlulara. Howell'ın ölçtüğü katmana çok daha yakın.
+   Çeyreklik ve ~4-5 ay gecikmeli. Ücretsiz, anahtarsız.
+   .771 = yıllık % değişim, kur etkisi BIS tarafından arındırılmış. */
+const BIS = {
+  url:"https://stats.bis.org/api/v2/data/dataflow/BIS/WS_GLI/1.0/Q.USD..N.A.I.B.771?format=csv",
+  label:"BIS · sınır ötesi dolar kredisi"
+};
+
+function parseCsv(text){
+  const lines = text.trim().split(/\r?\n/);
+  if(lines.length < 2) return [];
+  const split = l => {
+    const out = []; let cur = "", q = false;
+    for(const ch of l){
+      if(ch === '"') q = !q;
+      else if(ch === ',' && !q){ out.push(cur); cur = ""; }
+      else cur += ch;
+    }
+    out.push(cur); return out;
+  };
+  const head = split(lines[0]);
+  return lines.slice(1).map(l => {
+    const c = split(l), o = {};
+    head.forEach((h,i)=> o[h.trim()] = (c[i]||"").trim());
+    return o;
+  });
+}
+
+async function buildBis(){
+  const r = await fetch(viaProxy(BIS.url));
+  if(!r.ok) throw new Error("HTTP " + r.status);
+  const recs = parseCsv(await r.text());
+  if(!recs.length) throw new Error("boş yanıt");
+
+  const cols = Object.keys(recs[0]);
+  const find = re => cols.find(c => re.test(c));
+  const cTime = find(/TIME_PERIOD/i);
+  const cVal  = find(/OBS_VALUE/i);
+  const cCty  = find(/BORROWERS_CTY/i) || find(/Borrowers.*country/i);
+  if(!cTime || !cVal) throw new Error("beklenmeyen sütunlar: " + cols.slice(0,6).join(", "));
+
+  // "outside" içeren ülke etiketini seç; yoksa en çok gözlemi olanı
+  const groups = new Map();
+  for(const rec of recs){
+    const k = cCty ? rec[cCty] : "all";
+    if(!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(rec);
+  }
+  let pick = null, pickName = "";
+  for(const [k,v] of groups){
+    if(/outside|non-?resident/i.test(k)){ pick = v; pickName = k; break; }
+  }
+  if(!pick){
+    let best = 0;
+    for(const [k,v] of groups) if(v.length > best){ best = v.length; pick = v; pickName = k; }
+  }
+  if(!pick) throw new Error("seri seçilemedi");
+
+  // çeyrek -> ay (çeyreğin son ayı), sonra ileriye taşı
+  const q = new Map();
+  for(const rec of pick){
+    const t = rec[cTime], v = parseFloat(rec[cVal]);
+    const m = /^(\d{4})-?Q([1-4])$/.exec(t);
+    if(!m || !isFinite(v)) continue;
+    q.set(m[1] + "-" + String(+m[2]*3).padStart(2,"0"), v);
+  }
+  if(q.size < 4) throw new Error("yetersiz gözlem");
+
+  return {map:q, name:pickName, groups:[...groups.keys()]};
+}
 
 const BTC_SOURCES = [
   {name:"Kraken", url:"https://api.kraken.com/0/public/OHLC?pair=XBTUSD&interval=10080",
@@ -331,6 +411,14 @@ async function build(){
     for(const it of items){ it.w = it.usd/wSum; combined += it.w * it.yoy; }
     out.push({month:m, combined, items, usdTotal:wSum});
   }
+
+  /* Son aylarda bileşim eksik kalabiliyor: Fed ve ECB haftalık ve güncel,
+     BoJ aylık ve gecikmeli, PBoC gömülü seride bitiyor. Eksik bileşimli
+     kuyruk ayları hem başlık rakamını hem grafiği bozar — kesiyoruz. */
+  const recent = out.slice(-24);
+  const full = Math.max(...recent.map(r => r.items.length));
+  while(out.length && out[out.length-1].items.length < full) out.pop();
+
   return out;
 }
 
@@ -340,13 +428,21 @@ async function buildLevel(cfg){
 }
 
 /* ══ 4. GRAFİK ══ */
-let rows = [], years = 3, btcMap = null;
+let rows = [], years = 3, btcMap = null, bisMap = null;
 
 function btcYoy(month){
   if(!btcMap) return null;
   const a = btcMap.get(month), b = btcMap.get(prevYear(month));
   if(a == null || b == null || b === 0) return null;
   return (a/b - 1) * 100;
+}
+
+/* Çeyreklik BIS değerini aya taşı: o aydan önceki en yakın çeyrek */
+function bisAt(month){
+  if(!bisMap) return null;
+  let best = null;
+  for(const [k,v] of bisMap) if(k <= month && (best === null || k > best[0])) best = [k,v];
+  return best ? best[1] : null;
 }
 
 function draw(){
@@ -362,6 +458,7 @@ function draw(){
   if(vis.length < 2) return;
 
   const lv = vis.map(r=>r.combined);
+  if(bisMap) for(const r of vis){ const v = bisAt(r.month); if(v != null) lv.push(v); }
   let lo = Math.min(...lv,0), hi = Math.max(...lv,0);
   const lp = (hi-lo)*0.18 || 1; lo -= lp; hi += lp;
 
@@ -410,6 +507,19 @@ function draw(){
       const v = btcYoy(r.month);
       if(v == null){ on = false; return; }
       on ? c.lineTo(X(i),YB(v)) : (c.moveTo(X(i),YB(v)), on = true);
+    });
+    c.stroke();
+  }
+
+  // BIS — çeyreklik, basamaklı
+  if(bisMap){
+    c.strokeStyle = "#8E7CC8"; c.lineWidth = 1.6;
+    c.beginPath();
+    let on = false;
+    vis.forEach((r,i)=>{
+      const v = bisAt(r.month);
+      if(v == null){ on = false; return; }
+      on ? c.lineTo(X(i),Y(v)) : (c.moveTo(X(i),Y(v)), on = true);
     });
     c.stroke();
   }
@@ -510,6 +620,22 @@ async function load(){
       document.getElementById("legend").innerHTML =
         `<span><i style="background:#5FBFA0"></i>Likidite · yıllık %</span>
          <span style="color:#E0705A">BTC gelmedi</span>`;
+    }
+
+    try{
+      const bis = await buildBis();
+      bisMap = bis.map;
+      const last = [...bis.map.entries()].pop();
+      document.getElementById("bis").innerHTML = `<div class="row">
+        <span class="who">Sınır ötesi dolar kredisi<span class="meta">${bis.name} · ${last[0]} · çeyreklik</span></span>
+        <span class="val ${last[1]>=0?"rise":"fall"}">${pct(last[1])}%<small>yıllık</small></span>
+      </div>`;
+      document.getElementById("legend").insertAdjacentHTML("beforeend",
+        '<span><i style="background:#8E7CC8"></i>BIS · yıllık %</span>');
+      draw();
+    }catch(e){
+      document.getElementById("bis").innerHTML =
+        `<div class="alert"><b>BIS verisi gelmedi</b>${e.message}</div>`;
     }
 
     try{
