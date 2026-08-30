@@ -283,10 +283,19 @@ async function bisFromBis(){
     if(!groups.has(k)) groups.set(k, []);
     groups.get(k).push(rec);
   }
+  /* BIS ülke sütunu okunabilir isim değil, ISO/BIS kodu döndürüyor.
+     3P = ilgili para alanının dışındaki borçlular — aradığımız toplam bu.
+     Kod eşleşmezse isimle dene, o da olmazsa hata ver: yanlış ülkeyi
+     sessizce seçmektense boş bırakmak daha doğru. */
+  const PREFER = ["3P","3C"];
   let pick = null, name = "";
-  for(const [k,v] of groups) if(/outside|non-?resident/i.test(k)){ pick = v; name = k; break; }
-  if(!pick){ let b=0; for(const [k,v] of groups) if(v.length>b){ b=v.length; pick=v; name=k; } }
-  if(!pick) throw new Error("seri seçilemedi");
+  for(const code of PREFER){
+    if(groups.has(code)){ pick = groups.get(code); name = code; break; }
+  }
+  if(!pick){
+    for(const [k,v] of groups) if(/outside|non-?resident/i.test(k)){ pick = v; name = k; break; }
+  }
+  if(!pick) throw new Error("3P serisi bulunamadı · gelen kodlar: " + [...groups.keys()].slice(0,10).join(", "));
 
   const q = new Map();
   for(const rec of pick){
@@ -312,6 +321,7 @@ async function bisFromDbnomics(){
   const score = d => {
     let s = 0;
     if(/\.771$/.test(d.series_code||"")) s += 4;
+    if(/^Q\.USD\.3P\./.test(d.series_code||"")) s += 3;
     if(/outside|non-?resident/i.test(d.series_name||"")) s += 3;
     if(/growth|annual change|per cent|%/i.test(d.series_name||"")) s += 1;
     return s;
@@ -660,7 +670,7 @@ async function load(){
       bisMap = bis.map;
       const last = [...bis.map.entries()].pop();
       document.getElementById("bis").innerHTML = `<div class="row">
-        <span class="who">Sınır ötesi dolar kredisi<span class="meta">${bis.name} · ${last[0]} · çeyreklik · ${bis.via}</span></span>
+        <span class="who">Sınır ötesi dolar kredisi<span class="meta">${bis.name === "3P" ? "ABD dışı borçlular" : bis.name} · ${last[0]} · çeyreklik · ${bis.via}</span></span>
         <span class="val ${last[1]>=0?"rise":"fall"}">${pct(last[1])}%<small>yıllık</small></span>
       </div>`;
       document.getElementById("legend").insertAdjacentHTML("beforeend",
