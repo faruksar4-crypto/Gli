@@ -90,6 +90,13 @@ canvas{width:100%;height:210px;display:block}
   </section>
 
   <section class="sect">
+    <h2>Öncülük Testi · PBoC Hariç Momentum → BTC</h2>
+    <div class="hint">Likidite momentumu ile <b>sonraki</b> aylardaki BTC YoY arasındaki Pearson korelasyonu. Howell'ın varsayımı doğruysa en yüksek değer 3 ay civarında çıkmalı; 0'da çıkarsa öncülük değil eşzamanlılık, dağınıksa bu veride öncülük yok demektir.</div>
+    <div id="lagRows"><div class="load">BTC verisi bekleniyor</div></div>
+    <div class="stamp" id="lagNote"></div>
+  </section>
+
+  <section class="sect">
     <h2>Net Merkez Bankası Dağılımı</h2>
     <div class="hint">YoY değişimler <b>kendi para biriminde</b> hesaplanır. Fed netleştirilmiştir (WALCL eksi TGA/RRP). RRP ve TGA oynaklığı önlemek için aylık ortalama alınır.</div>
     <div class="stamp" id="pbocStamp"></div>
@@ -495,6 +502,73 @@ function renderStress(){
 
 function pct(v,d){ return (v>=0?"+":"−") + Math.abs(v).toFixed(d==null?1:d); }
 
+/* ── Öncülük testi: PBoC hariç momentum (t) → BTC YoY (t+gecikme) ── */
+function pearson(xs, ys){
+  const n = xs.length; if(n < 3) return null;
+  let sx=0, sy=0;
+  for(let i=0;i<n;i++){ sx+=xs[i]; sy+=ys[i]; }
+  const mx=sx/n, my=sy/n;
+  let num=0, dx=0, dy=0;
+  for(let i=0;i<n;i++){
+    const a=xs[i]-mx, b=ys[i]-my;
+    num+=a*b; dx+=a*a; dy+=b*b;
+  }
+  if(dx===0 || dy===0) return null;
+  return num / Math.sqrt(dx*dy);
+}
+
+const MIN_OVERLAP = 24;
+
+function lagTable(){
+  const out=[];
+  for(let lag=0; lag<=6; lag++){
+    const xs=[], ys=[];
+    for(let i=0;i<rows.length;i++){
+      const j=i+lag; if(j>=rows.length) break;
+      const x=rows[i].mEx, y=btcYoy(rows[j].month);
+      if(x!=null && y!=null && isFinite(x) && isFinite(y)){ xs.push(x); ys.push(y); }
+    }
+    out.push({lag, n:xs.length, r: xs.length>=MIN_OVERLAP ? pearson(xs,ys) : null});
+  }
+  return out;
+}
+
+function renderLags(){
+  const el = document.getElementById("lagRows");
+  const note = document.getElementById("lagNote");
+  if(!btcMap){
+    el.innerHTML = '<div class="load">BTC verisi yok</div>';
+    note.className = "stamp"; note.textContent = "";
+    return;
+  }
+  const tbl = lagTable();
+  const usable = tbl.filter(t => t.r != null);
+  if(!usable.length){
+    el.innerHTML = '<div class="load">Yeterli ortak ay yok</div>';
+    note.className = "stamp";
+    note.textContent = "Korelasyon için en az " + MIN_OVERLAP + " ortak ay gerekiyor.";
+    return;
+  }
+  let best = usable[0];
+  usable.forEach(t => { if(Math.abs(t.r) > Math.abs(best.r)) best = t; });
+
+  el.innerHTML = tbl.map(t=>{
+    const isBest = t.r != null && t.lag === best.lag;
+    const w = t.r != null ? Math.abs(t.r)*100 : 0;
+    const val = t.r != null ? pct(t.r,2) : "—";
+    const cls = t.r == null ? "" : (t.r >= 0 ? "rise" : "fall");
+    return '<div class="row"><span class="who">' + t.lag + ' ay gecikme' +
+      '<span class="meta">n = ' + t.n + (isBest ? ' · en güçlü' : '') + '</span>' +
+      '<span class="wbar"><div style="width:' + w.toFixed(1) + '%"></div></span></span>' +
+      '<span class="val ' + cls + '">' + val + '<small>r</small></span></div>';
+  }).join("");
+
+  note.className = "stamp";
+  note.textContent = "En güçlü ilişki " + best.lag + " ay gecikmede (r = " + pct(best.r,2) +
+    "). YoY serileri örtüşen pencereler kullandığı için ardışık gözlemler bağımsız değil; " +
+    "r değerleri gerçekte olduğundan güçlü görünür. Yön göstergesi olarak okunmalı, kanıt olarak değil.";
+}
+
 /* PBoC gömülü serisi %29 ağırlıkta ve elle güncelleniyor.
    Donarsa tüm endeksin işaretini bozar, o yüzden tazeliği ekranda. */
 function renderPbocStamp(indexMonth){
@@ -558,9 +632,11 @@ async function load(){
       btcMap = b.map; draw();
       const n = document.getElementById("btcNote");
       if(n){ n.className = "stamp"; n.textContent = "BTC kaynağı: " + b.source + " · " + b.map.size + " ay."; }
+      renderLags();
     }catch(e){
       const n = document.getElementById("btcNote");
       if(n){ n.className = "stamp stale"; n.textContent = "BTC verisi alınamadı — " + e.message; }
+      renderLags();
     }
   }catch(e){
     document.getElementById("big").textContent = "—"; document.getElementById("sub").innerHTML = "<em>veri yok</em>";
