@@ -91,7 +91,13 @@ canvas{width:100%;height:210px;display:block}
 
   <section class="sect">
     <h2>Öncülük Testi · PBoC Hariç Momentum → BTC</h2>
-    <div class="hint">Likidite momentumu ile <b>sonraki</b> aylardaki BTC YoY arasındaki Pearson korelasyonu. Howell'ın varsayımı doğruysa en yüksek değer 3 ay civarında çıkmalı; 0'da çıkarsa öncülük değil eşzamanlılık, dağınıksa bu veride öncülük yok demektir.</div>
+    <div class="hint">Likidite momentumu ile <b>sonraki</b> aylardaki BTC YoY arasındaki Pearson korelasyonu. Howell'ın varsayımı doğruysa en yüksek değer 3 ay civarında çıkmalı; 0'da çıkarsa öncülük değil eşzamanlılık, dağınıksa bu veride öncülük yok demektir. Ağırlıklı bileşik Fed'i ECB ve BoJ ile seyreltir — tek tek de sınayabilirsin.</div>
+    <div class="ranges" role="group" id="lagPick">
+      <button data-series="ex" aria-pressed="true">PBoC hariç</button>
+      <button data-series="combined">Birleşik</button>
+      <button data-series="fed">Fed</button>
+      <button data-series="pboc">PBoC</button>
+    </div>
     <div id="lagRows"><div class="load">BTC verisi bekleniyor</div></div>
     <div class="stamp" id="lagNote"></div>
   </section>
@@ -334,6 +340,11 @@ async function build(){
   const m_vals = getDiff(yoyVals, 3);
   const mEx    = getDiff(exVals, 3);
 
+  /* Banka bazında momentum — öncülük testinde tek bankayı
+     seyreltilmemiş haliyle sınayabilmek için. */
+  const bankM = {};
+  keys.forEach(k => { bankM[k] = getDiff(data.map(d => d.yoy[k] != null ? d.yoy[k] : null), 3); });
+
   const m_sma = getSMA(m_vals, 36, 18);
   const m_std = getStd(m_vals, 36, 18);
   const z_36 = m_vals.map((v, i) =>
@@ -352,6 +363,7 @@ async function build(){
     if (gli_yoy[i] != null && m_vals[i] != null) {
       out.push({ month: data[i].month, combined: gli_yoy[i].val, ex: gli_yoy[i].ex,
                  m: m_vals[i], mEx: mEx[i], usdTotal: gli_yoy[i].totalUsd,
+                 mBank: Object.fromEntries(keys.map(k => [k, bankM[k][i]])),
                  items: gli_yoy[i].items, z: z_36[i], color: colors[i] });
     }
   }
@@ -518,14 +530,24 @@ function pearson(xs, ys){
 }
 
 const MIN_OVERLAP = 24;
+const MAX_LAG = 12;
+
+const LAG_SERIES = {
+  ex:       {label:"PBoC hariç", pick: r => r.mEx},
+  combined: {label:"Birleşik",   pick: r => r.m},
+  fed:      {label:"Sadece Fed", pick: r => r.mBank ? r.mBank.fed : null},
+  pboc:     {label:"Sadece PBoC",pick: r => r.mBank ? r.mBank.pboc : null}
+};
+let lagSeries = "ex";
 
 function lagTable(){
+  const pick = LAG_SERIES[lagSeries].pick;
   const out=[];
-  for(let lag=0; lag<=6; lag++){
+  for(let lag=0; lag<=MAX_LAG; lag++){
     const xs=[], ys=[];
     for(let i=0;i<rows.length;i++){
       const j=i+lag; if(j>=rows.length) break;
-      const x=rows[i].mEx, y=btcYoy(rows[j].month);
+      const x=pick(rows[i]), y=btcYoy(rows[j].month);
       if(x!=null && y!=null && isFinite(x) && isFinite(y)){ xs.push(x); ys.push(y); }
     }
     out.push({lag, n:xs.length, r: xs.length>=MIN_OVERLAP ? pearson(xs,ys) : null});
@@ -563,9 +585,11 @@ function renderLags(){
       '<span class="val ' + cls + '">' + val + '<small>r</small></span></div>';
   }).join("");
 
+  const atEdge = best.lag === MAX_LAG;
   note.className = "stamp";
-  note.textContent = "En güçlü ilişki " + best.lag + " ay gecikmede (r = " + pct(best.r,2) +
-    "). YoY serileri örtüşen pencereler kullandığı için ardışık gözlemler bağımsız değil; " +
+  note.textContent = "En güçlü ilişki " + best.lag + " ay gecikmede (r = " + pct(best.r,2) + "). " +
+    (atEdge ? "Tepe test aralığının kenarında — gerçek tepe daha ileride olabilir. " : "") +
+    "YoY serileri örtüşen pencereler kullandığı için ardışık gözlemler bağımsız değil; " +
     "r değerleri gerçekte olduğundan güçlü görünür. Yön göstergesi olarak okunmalı, kanıt olarak değil.";
 }
 
@@ -647,6 +671,15 @@ async function load(){
 document.querySelectorAll(".ranges button").forEach(b=>{
   b.onclick = ()=>{ document.querySelectorAll(".ranges button").forEach(x=>x.setAttribute("aria-pressed","false")); b.setAttribute("aria-pressed","true"); years = +b.dataset.years; draw(); };
 });
+document.querySelectorAll("#lagPick button").forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll("#lagPick button").forEach(x=>x.setAttribute("aria-pressed","false"));
+    b.setAttribute("aria-pressed","true");
+    lagSeries = b.dataset.series;
+    renderLags();
+  };
+});
+
 let rt; addEventListener("resize", ()=>{ clearTimeout(rt); rt = setTimeout(()=>{ draw(); drawStress(); },150); });
 
 (function(){
