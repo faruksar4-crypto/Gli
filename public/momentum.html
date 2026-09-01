@@ -20,15 +20,22 @@ body{ background:var(--bg); color:var(--ink); font-family:"Sora",system-ui,sans-
 .big{font-family:"Instrument Serif",serif;font-weight:400; font-size:clamp(72px,24vw,124px);line-height:.84;letter-spacing:-.015em; font-variant-numeric:tabular-nums}
 .big.rise{color:var(--rise)} .big.fall{color:var(--fall)}
 .sub{font-size:15px;color:var(--ink);margin-top:18px;line-height:1.5;font-weight:300}
+.sub .split{display:block;margin-top:7px;color:var(--dim)}
+.sub .state{display:block;margin-top:10px}
+.sub .unconfirmed{color:var(--dim)}
 .legend{display:flex;flex-wrap:wrap;gap:14px;margin:26px 0 10px; font-family:"DM Mono",monospace;font-size:10.5px;color:var(--dim);letter-spacing:.05em}
 .legend i{display:inline-block;width:16px;height:2px;vertical-align:middle; margin-right:6px;border-radius:2px}
+.legend i.dash{background:none;border-top:2px dashed var(--dim);height:0}
 canvas{width:100%;height:210px;display:block}
 .ranges{display:flex;margin-top:14px;background:var(--panel);border-radius:9px;padding:3px}
 .ranges button{flex:1;appearance:none;background:transparent;border:0;padding:10px 4px; cursor:pointer;border-radius:7px;font-family:"DM Mono",monospace;font-size:11px; color:var(--dim);letter-spacing:.05em}
 .ranges button[aria-pressed="true"]{background:var(--line);color:var(--ink)}
+.ranges button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .sect{margin-top:38px}
 .sect h2{font-family:"DM Mono",monospace;font-size:10.5px;font-weight:500; letter-spacing:.18em;text-transform:uppercase;color:var(--dim); margin:0 0 6px;padding-bottom:10px;border-bottom:1px solid var(--line)}
 .hint{font-size:13px;color:var(--dim);line-height:1.6;margin:12px 0 4px;font-weight:300}
+.stamp{font-family:"DM Mono",monospace;font-size:10.5px;letter-spacing:.04em; line-height:1.7;color:var(--faint);margin:10px 0 2px}
+.stamp.stale{color:var(--fall)}
 .row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:14px; padding:15px 0;border-bottom:1px solid var(--line)}
 .row .who{font-size:15px}
 .row .meta{display:block;font-family:"DM Mono",monospace;font-size:10.5px; color:var(--faint);margin-top:4px;letter-spacing:.04em}
@@ -37,6 +44,8 @@ canvas{width:100%;height:210px;display:block}
 .rise{color:var(--rise)} .fall{color:var(--fall)}
 .wbar{height:3px;background:var(--line);border-radius:2px;margin-top:9px;overflow:hidden}
 .wbar div{height:100%;background:var(--dim);border-radius:2px}
+.alert{margin-top:16px;padding:13px 14px;background:var(--panel); border-left:2px solid var(--fall);border-radius:0 8px 8px 0; font-size:13px;line-height:1.6;color:var(--dim)}
+.alert b{color:var(--ink);font-weight:400}
 .cfg{margin-top:38px;padding-top:20px;border-top:1px solid var(--line)}
 .cfg label{display:block;font-size:13px;color:var(--dim);margin:16px 0 7px}
 .cfg input{width:100%;padding:13px 14px;background:var(--panel); border:1px solid var(--line);border-radius:8px;color:var(--ink); font-family:"DM Mono",monospace;font-size:13px}
@@ -59,6 +68,7 @@ canvas{width:100%;height:210px;display:block}
   <section>
     <div class="legend" id="legend">
       <span><i style="background:linear-gradient(90deg,#E0705A,#5FBFA0)"></i>Momentum · renk yoğunluğu = Z-Skor</span>
+      <span><i class="dash"></i>PBoC hariç momentum</span>
       <span><i style="background:#5A6B77"></i>Z-Skor ısınıyor</span>
       <span><i style="background:#E8A33D"></i>BTC YoY %</span>
     </div>
@@ -81,6 +91,7 @@ canvas{width:100%;height:210px;display:block}
   <section class="sect">
     <h2>Net Merkez Bankası Dağılımı</h2>
     <div class="hint">YoY değişimler <b>kendi para biriminde</b> hesaplanır. Fed netleştirilmiştir (WALCL eksi TGA/RRP). RRP ve TGA oynaklığı önlemek için aylık ortalama alınır.</div>
+    <div class="stamp" id="pbocStamp"></div>
     <div id="rows"><div class="load">Veriler alınıyor</div></div>
     <div id="alerts"></div>
   </section>
@@ -96,6 +107,8 @@ canvas{width:100%;height:210px;display:block}
     FRED · WALCL, WTREGEN, RRPONTSYD, ECBASSETSW, JPNASSETS, SOFR, IORB<br>
     PBoC · gömülü seri, resmi bilanço tabloları (2019-01 →)<br>
     Momentum 2020-04'te başlar. Z-Skor 36 aylık pencere (min 18 gözlem); ilk aylar gri çizilir.<br>
+    PBoC hariç seri, kalan bankaların ağırlıkları yeniden normalize edilerek hesaplanır.<br>
+    Yön ancak momentum 3 ay üst üste aynı tarafa gittiğinde teyitli sayılır.<br>
     İki kadran ayrı ölçer, toplanmaz. Aynı yönü göstermeleri teyit, ayrışmaları soru işaretidir.
   </footer>
 </div>
@@ -200,6 +213,10 @@ function monthlyAvg(obs){
   return out;
 }
 function prevYear(month){ const [y,m] = month.split("-").map(Number); return (y-1) + "-" + String(m).padStart(2,"0"); }
+function monthGap(from, to){
+  const [fy,fm] = from.split("-").map(Number), [ty,tm] = to.split("-").map(Number);
+  return (ty-fy)*12 + (tm-fm);
+}
 
 async function buildBtc(){
   for(const src of BTC_SOURCES) try{
@@ -231,230 +248,4 @@ async function build(){
   }
   nat.fed = fedNet;
   nat.ecb = monthlyLast(await getSeries(BANKS.ecb.id));
-  nat.boj = monthlyLast(await getSeries(BANKS.boj.id));
-  nat.pboc = new Map(PBOC.data);
-  const defs = {...BANKS, pboc:PBOC};
-  const months = [...nat.fed.keys()].sort();
-
-  const data = months.map(m => {
-    const py = prevYear(m); const row = { month: m, usd: {}, yoy: {} };
-    for (const k of Object.keys(defs)) {
-      const now = nat[k].get(m), then = nat[k].get(py), r = rate(defs[k].cur, m);
-      if (now != null && r != null) row.usd[k] = (now * defs[k].toUnit * r) / 1e12;
-      if (now != null && then != null && then !== 0) row.yoy[k] = (now / then - 1) * 100;
-    }
-    return row;
-  });
-
-  const keys = Object.keys(defs); const usdSeries = {};
-  keys.forEach(k => { usdSeries[k] = getSMA(data.map(d => d.usd[k]), 12, 1); });
-
-  const gli_yoy = data.map((d, i) => {
-    let totalUsd = 0, valid = true;
-    keys.forEach(k => { if (usdSeries[k][i] == null || d.yoy[k] == null) valid = false; else totalUsd += usdSeries[k][i]; });
-    if (!valid || totalUsd === 0) return null;
-    let yoySum = 0; keys.forEach(k => { yoySum += (usdSeries[k][i] / totalUsd) * d.yoy[k]; });
-    return { val: yoySum, totalUsd, items: keys.map(k=>({k, yoy:d.yoy[k], w:usdSeries[k][i]/totalUsd})) };
-  });
-
-  const yoyVals = gli_yoy.map(y => y ? y.val : null);
-  const m_vals = getDiff(yoyVals, 3);
-
-  const m_sma = getSMA(m_vals, 36, 18);
-  const m_std = getStd(m_vals, 36, 18);
-  const z_36 = m_vals.map((v, i) =>
-    (v == null || m_sma[i] == null || m_std[i] == null || m_std[i] === 0)
-      ? null : (v - m_sma[i]) / m_std[i]);
-
-  const colors = z_36.map(z => {
-    if (z == null) return "rgba(90, 107, 119, 0.55)";
-    const capped = Math.max(-2, Math.min(2, z));
-    const a = (0.35 + 0.65 * Math.abs(capped) / 2).toFixed(3);
-    return z > 0 ? `rgba(95,191,160,${a})` : `rgba(224,112,90,${a})`;
-  });
-
-  const out = [];
-  for (let i = 0; i < data.length; i++) {
-    if (gli_yoy[i] != null && m_vals[i] != null) {
-      out.push({ month: data[i].month, combined: gli_yoy[i].val, m: m_vals[i], usdTotal: gli_yoy[i].totalUsd, items: gli_yoy[i].items, z: z_36[i], color: colors[i] });
-    }
-  }
-  return out;
-}
-
-let rows = [], years = 3, btcMap = null;
-function btcYoy(month){
-  if(!btcMap) return null;
-  const a = btcMap.get(month), b = btcMap.get(prevYear(month));
-  if(a == null || b == null || b === 0) return null; return (a/b - 1) * 100;
-}
-
-function draw(){
-  const cv = document.getElementById("chart"); const dpr = window.devicePixelRatio || 1;
-  const W = cv.clientWidth, H = 210; cv.width = W*dpr; cv.height = H*dpr;
-  const c = cv.getContext("2d"); c.setTransform(dpr,0,0,dpr,0,0); c.clearRect(0,0,W,H);
-  const vis = years ? rows.slice(-years*12) : rows; if(vis.length < 2) return;
-
-  const lv = vis.map(r=>r.m); let lo = Math.min(...lv,0), hi = Math.max(...lv,0);
-  const lp = (hi-lo)*0.18 || 1; lo -= lp; hi += lp;
-  const bv = vis.map(r=>btcYoy(r.month)).filter(v=>v!=null); const hasB = bv.length > 2;
-  let blo=0, bhi=1;
-  if(hasB){ blo = Math.min(...bv,0); bhi = Math.max(...bv,0); const bp = (bhi-blo)*0.14 || 1; blo -= bp; bhi += bp; }
-
-  const L = 40, R = W - (hasB ? 46 : 40), T = 14, B = H - 24;
-  const X = i => L + (i/(vis.length-1))*(R-L);
-  const Y = v => B - ((v-lo)/(hi-lo))*(B-T); const YB = v => B - ((v-blo)/(bhi-blo))*(B-T);
-
-  c.font = "10px 'DM Mono', monospace"; c.textBaseline = "middle";
-  for(let i=0;i<=3;i++){
-    const v = lo + (i/3)*(hi-lo), y = Y(v);
-    c.strokeStyle = "#233440"; c.lineWidth = 1; c.setLineDash([2,5]); c.beginPath(); c.moveTo(L,y); c.lineTo(R,y); c.stroke();
-    c.fillStyle = "#5A6B77"; c.textAlign = "right"; c.fillText((v>=0?"+":"")+v.toFixed(2), L-8, y);
-    if(hasB){ const b = blo + (i/3)*(bhi-blo); c.fillStyle = "rgba(232,163,61,.75)"; c.textAlign = "left"; c.fillText((b>=0?"+":"")+b.toFixed(0), R+7, y); }
-  }
-  c.setLineDash([]);
-  if(lo < 0 && hi > 0){ const zy = Y(0); c.strokeStyle = "rgba(234,228,217,.34)"; c.lineWidth = 1; c.beginPath(); c.moveTo(L,zy); c.lineTo(R,zy); c.stroke(); }
-  c.lineJoin = "round"; c.lineCap = "round";
-
-  if(hasB){
-    c.strokeStyle = "rgba(232,163,61,.85)"; c.lineWidth = 1.4; c.beginPath(); let on = false;
-    vis.forEach((r,i)=>{ const v = btcYoy(r.month); if(v == null){ on = false; return; } on ? c.lineTo(X(i),YB(v)) : (c.moveTo(X(i),YB(v)), on = true); });
-    c.stroke();
-  }
-
-  c.lineWidth = 2.4; let prevValid = null;
-  vis.forEach((r,i)=>{
-    if (r.m == null) { prevValid = null; return; }
-    if (prevValid != null) { c.beginPath(); c.moveTo(X(i-1), Y(vis[i-1].m)); c.lineTo(X(i), Y(r.m)); c.strokeStyle = r.color; c.stroke(); }
-    prevValid = r;
-  });
-
-  const last = vis[vis.length-1]; c.fillStyle = last.color;
-  c.beginPath(); c.arc(X(vis.length-1), Y(last.m), 4, 0, Math.PI*2); c.fill();
-  c.fillStyle = "#5A6B77"; c.textBaseline = "top"; c.textAlign = "left"; c.fillText(vis[0].month, L, B+8); c.textAlign = "right"; c.fillText(last.month, R, B+8);
-}
-
-/* ── Kadran 2: repo stresi (SOFR − IORB, günlük) ── */
-let stress = [];
-
-async function buildStress(){
-  const raw = obs => { const m = new Map();
-    for(const o of obs){ const v = parseFloat(o.value); if(isFinite(v)) m.set(o.date, v); } return m; };
-  const sofr = raw(await getSeries("SOFR"));
-  const iorb = raw(await getSeries("IORB"));
-  const out = [];
-  for(const [d, s] of sofr){
-    const i = iorb.get(d);
-    if(i != null) out.push({date:d, bp:(s - i) * 100});
-  }
-  out.sort((a,b)=> a.date < b.date ? -1 : 1);
-  return out.slice(-180);
-}
-
-function drawStress(){
-  const cv = document.getElementById("stressChart"); if(!cv || stress.length < 2) return;
-  const dpr = window.devicePixelRatio || 1;
-  const W = cv.clientWidth, H = 120; cv.width = W*dpr; cv.height = H*dpr;
-  const c = cv.getContext("2d"); c.setTransform(dpr,0,0,dpr,0,0); c.clearRect(0,0,W,H);
-
-  const vals = stress.map(s=>s.bp);
-  let lo = Math.min(...vals, 0), hi = Math.max(...vals, 0);
-  const pad = (hi-lo)*0.2 || 1; lo -= pad; hi += pad;
-  const L = 40, R = W - 10, T = 10, B = H - 20;
-  const X = i => L + (i/(stress.length-1))*(R-L);
-  const Y = v => B - ((v-lo)/(hi-lo))*(B-T);
-
-  c.font = "10px 'DM Mono', monospace"; c.textBaseline = "middle"; c.textAlign = "right";
-  for(let i=0;i<=2;i++){
-    const v = lo + (i/2)*(hi-lo), y = Y(v);
-    c.strokeStyle = "#233440"; c.lineWidth = 1; c.setLineDash([2,5]);
-    c.beginPath(); c.moveTo(L,y); c.lineTo(R,y); c.stroke();
-    c.fillStyle = "#5A6B77"; c.fillText((v>=0?"+":"")+v.toFixed(0), L-8, y);
-  }
-  c.setLineDash([]);
-  if(lo < 0 && hi > 0){
-    const zy = Y(0); c.strokeStyle = "rgba(234,228,217,.34)"; c.lineWidth = 1;
-    c.beginPath(); c.moveTo(L,zy); c.lineTo(R,zy); c.stroke();
-  }
-
-  c.strokeStyle = "#8A9AA5"; c.lineWidth = 1.8; c.lineJoin = "round"; c.lineCap = "round";
-  c.beginPath();
-  stress.forEach((s,i)=> i ? c.lineTo(X(i),Y(s.bp)) : c.moveTo(X(i),Y(s.bp)));
-  c.stroke();
-
-  const lastS = stress[stress.length-1];
-  c.fillStyle = "#EAE4D9";
-  c.beginPath(); c.arc(X(stress.length-1), Y(lastS.bp), 3.5, 0, Math.PI*2); c.fill();
-
-  c.fillStyle = "#5A6B77"; c.textBaseline = "top"; c.textAlign = "left";
-  c.fillText(stress[0].date, L, B+6);
-  c.textAlign = "right"; c.fillText(lastS.date, R, B+6);
-}
-
-function renderStress(){
-  const lastS = stress[stress.length-1];
-  const bp = lastS.bp;
-  const el = document.getElementById("stressNow");
-  el.innerHTML = `${bp>=0?"+":"−"}${Math.abs(bp).toFixed(1)}<small>BAZ PUAN · ${lastS.date}</small>`;
-  el.style.color = bp > 5 ? "var(--fall)" : (bp > 0 ? "var(--ink)" : "var(--rise)");
-
-  const win = stress.slice(-60).map(s=>s.bp);
-  const ort = win.reduce((a,b)=>a+b,0) / win.length;
-  const yon = bp > ort + 1 ? "son 60 günün ortalamasının üzerinde" :
-              bp < ort - 1 ? "son 60 günün ortalamasının altında" : "son 60 günün ortalamasına yakın";
-  document.getElementById("stressNote").textContent =
-    `60 günlük ortalama ${ort>=0?"+":"−"}${Math.abs(ort).toFixed(1)} bp. Güncel değer ${yon}.`;
-  drawStress();
-}
-
-function pct(v,d){ return (v>=0?"+":"−") + Math.abs(v).toFixed(d==null?1:d); }
-
-function render(){
-  const last = rows[rows.length-1]; const up = last.m >= 0;
-  document.getElementById("asOf").textContent = last.month;
-  const big = document.getElementById("big"); big.innerHTML = pct(last.m, 2);
-  big.className = "big " + (up ? "rise" : "fall"); big.style.color = last.color;
-
-  const zTxt = last.z != null ? `Z-Skor ${pct(last.z, 2)}` : "Z-Skor ısınıyor";
-  const durum = last.combined >= 0
-    ? (up ? "Genişleme hızlanıyor." : "Genişleme yavaşlıyor.")
-    : (up ? "Daralma yavaşlıyor." : "Daralma hızlanıyor.");
-  document.getElementById("sub").innerHTML =
-    `Birleşik YoY <b>${pct(last.combined, 2)}%</b> · ${zTxt}<br>${durum}`;
-
-  const defs = {...BANKS, pboc:PBOC};
-  document.getElementById("rows").innerHTML = last.items.slice().sort((a,b)=> b.w - a.w).map(it=>{
-      const d = defs[it.k];
-      return `<div class="row"><span class="who">${d.label}<span class="meta">${d.meta} · ağırlık %${(it.w*100).toFixed(0)}</span><span class="wbar"><div style="width:${(it.w*100).toFixed(1)}%"></div></span></span><span class="val ${it.yoy>=0?"rise":"fall"}">${pct(it.yoy)}%<small>yıllık</small></span></div>`;
-  }).join("");
-  draw();
-}
-
-async function load(){
-  try{
-    rows = await build(); if(!rows.length) throw new Error("Yeterli ortak ay bulunamadı."); render();
-    try{ stress = await buildStress(); if(stress.length > 1) renderStress(); }catch(e){
-      document.getElementById("stressNow").textContent = "—";
-      document.getElementById("stressNote").textContent = "SOFR/IORB verisi alınamadı.";
-    }
-    try{ const b = await buildBtc(); if (b) { btcMap = b.map; draw(); } }catch(e){}
-  }catch(e){
-    document.getElementById("big").textContent = "—"; document.getElementById("sub").innerHTML = "<em>veri yok</em>";
-    document.getElementById("rows").innerHTML = ""; document.getElementById("alerts").innerHTML = `<div class="alert"><b>Veri gelmedi</b> ${e.message}</div>`;
-  }
-}
-
-document.querySelectorAll(".ranges button").forEach(b=>{
-  b.onclick = ()=>{ document.querySelectorAll(".ranges button").forEach(x=>x.setAttribute("aria-pressed","false")); b.setAttribute("aria-pressed","true"); years = +b.dataset.years; draw(); };
-});
-let rt; addEventListener("resize", ()=>{ clearTimeout(rt); rt = setTimeout(()=>{ draw(); drawStress(); },150); });
-
-(function(){
-  document.getElementById("cfgKey").value = fredKey(); document.getElementById("cfgPx").value = readStore(PX_NAMES);
-  document.getElementById("cfgSave").onclick = ()=>{ try{ localStorage.setItem("fred_key", document.getElementById("cfgKey").value.trim()); localStorage.setItem("proxy_base", document.getElementById("cfgPx").value.trim()); }catch(e){} location.reload(); };
-})();
-
-if(!fredKey()){ document.getElementById("sub").innerHTML = "<em>anahtar gerekli</em>"; document.getElementById("rows").innerHTML = ""; } else load();
-</script>
-</body>
-</html>
+  nat.boj = monthlyL
