@@ -79,6 +79,7 @@ canvas{width:100%;height:210px;display:block}
       <button data-years="5">5 yıl</button>
       <button data-years="0">Tümü</button>
     </div>
+    <div class="stamp" id="btcNote"></div>
   </section>
   <section class="sect">
     <h2>Kadran 2 · Repo Stresi</h2>
@@ -166,7 +167,11 @@ const FX = { EUR:{id:"DEXUSEU", mode:"usdPerUnit"}, JPY:{id:"DEXJPUS", mode:"uni
 
 const BTC_SOURCES = [
   {name:"Kraken", url:"https://api.kraken.com/0/public/OHLC?pair=XBTUSD&interval=10080",
-   parse(j){ const k = Object.keys(j.result||{}).find(x=>x!=="last"); return j.result[k].map(r=>[r[0]*1000, parseFloat(r[4])]); }}
+   parse(j){ const k = Object.keys(j.result||{}).find(x=>x!=="last"); return j.result[k].map(r=>[r[0]*1000, parseFloat(r[4])]); }},
+  {name:"CoinGecko", url:"https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=max&interval=daily",
+   parse(j){ return (j.prices||[]).map(p=>[p[0], p[1]]); }},
+  {name:"Bitstamp", url:"https://www.bitstamp.net/api/v2/ohlc/btcusd/?step=259200&limit=1000",
+   parse(j){ return (j.data&&j.data.ohlc||[]).map(r=>[parseInt(r.timestamp,10)*1000, parseFloat(r.close)]); }}
 ];
 
 function getSMA(arr, win, min) {
@@ -227,13 +232,38 @@ function monthGap(from, to){
   return (ty-fy)*12 + (tm-fm);
 }
 
+/* Her kaynağı önce proxy üzerinden, olmazsa doğrudan dener.
+   Hepsi başarısız olursa hata mesajlarını birleştirip fırlatır —
+   sessizce yutmaz, aksi halde eğri kaybolur ve sebebi görünmez. */
 async function buildBtc(){
-  for(const src of BTC_SOURCES) try{
-    const r = await fetch(viaProxy(src.url)); const pairs = src.parse(await r.json());
-    pairs.sort((a,b)=>a[0]-b[0]); const m = new Map();
-    for(const [ms,c] of pairs) if(isFinite(c)) m.set(new Date(ms).toISOString().slice(0,7), c);
-    return {map:m, source:src.name};
-  }catch(e){} return null;
+  const errs = [];
+  for(const src of BTC_SOURCES){
+    for(const mode of ["proxy","direct"]){
+      try{
+        const target = mode === "proxy" ? viaProxy(src.url) : src.url;
+        const ctl = new AbortController();
+        const t = setTimeout(()=>ctl.abort(), 15000);
+        let r;
+        try{ r = await fetch(target, {signal: ctl.signal}); }
+        finally{ clearTimeout(t); }
+        if(!r.ok) throw new Error("HTTP " + r.status);
+        const pairs = src.parse(await r.json());
+        if(!pairs || !pairs.length) throw new Error("boş yanıt");
+        pairs.sort((a,b)=>a[0]-b[0]);
+        const m = new Map();
+        for(const [ms,c] of pairs){
+          const v = parseFloat(c);
+          if(isFinite(v)) m.set(new Date(ms).toISOString().slice(0,7), v);
+        }
+        if(m.size < 24) throw new Error("yetersiz ay (" + m.size + ")");
+        return {map:m, source: src.name + (mode === "direct" ? " · doğrudan" : "")};
+      }catch(e){
+        errs.push(src.name + "/" + (mode === "proxy" ? "proxy" : "doğrudan") + ": " +
+                  (e.name === "AbortError" ? "zaman aşımı" : e.message));
+      }
+    }
+  }
+  throw new Error(errs.join(" · "));
 }
 
 async function build(){
@@ -523,7 +553,15 @@ async function load(){
       document.getElementById("stressNow").textContent = "—";
       document.getElementById("stressNote").textContent = "SOFR/IORB verisi alınamadı.";
     }
-    try{ const b = await buildBtc(); if (b) { btcMap = b.map; draw(); } }catch(e){}
+    try{
+      const b = await buildBtc();
+      btcMap = b.map; draw();
+      const n = document.getElementById("btcNote");
+      if(n){ n.className = "stamp"; n.textContent = "BTC kaynağı: " + b.source + " · " + b.map.size + " ay."; }
+    }catch(e){
+      const n = document.getElementById("btcNote");
+      if(n){ n.className = "stamp stale"; n.textContent = "BTC verisi alınamadı — " + e.message; }
+    }
   }catch(e){
     document.getElementById("big").textContent = "—"; document.getElementById("sub").innerHTML = "<em>veri yok</em>";
     document.getElementById("rows").innerHTML = ""; document.getElementById("alerts").innerHTML = `<div class="alert"><b>Veri gelmedi</b> ${e.message}</div>`;
