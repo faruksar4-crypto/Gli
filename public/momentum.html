@@ -530,6 +530,7 @@ function pearson(xs, ys){
 }
 
 const MIN_OVERLAP = 24;
+const MIN_HALF = 18;
 const MAX_LAG = 12;
 
 const LAG_SERIES = {
@@ -540,19 +541,38 @@ const LAG_SERIES = {
 };
 let lagSeries = "ex";
 
+/* Her gecikme için üç korelasyon: tüm örneklem ve iki yarı ayrı ayrı.
+   Tepe iki yarıda da aynı yerdeyse yapı gerçek; kayıyorsa
+   gördüğümüz şey tek bir döngünün izi ya da yöntem etkisi. */
 function lagTable(){
   const pick = LAG_SERIES[lagSeries].pick;
-  const out=[];
+  const mid = Math.floor(rows.length / 2);
+  const out = [];
   for(let lag=0; lag<=MAX_LAG; lag++){
-    const xs=[], ys=[];
+    const xs=[], ys=[], x1=[], y1=[], x2=[], y2=[];
     for(let i=0;i<rows.length;i++){
       const j=i+lag; if(j>=rows.length) break;
       const x=pick(rows[i]), y=btcYoy(rows[j].month);
-      if(x!=null && y!=null && isFinite(x) && isFinite(y)){ xs.push(x); ys.push(y); }
+      if(x==null || y==null || !isFinite(x) || !isFinite(y)) continue;
+      xs.push(x); ys.push(y);
+      if(i < mid){ x1.push(x); y1.push(y); } else { x2.push(x); y2.push(y); }
     }
-    out.push({lag, n:xs.length, r: xs.length>=MIN_OVERLAP ? pearson(xs,ys) : null});
+    out.push({
+      lag, n: xs.length,
+      r:  xs.length >= MIN_OVERLAP ? pearson(xs,ys) : null,
+      r1: x1.length >= MIN_HALF   ? pearson(x1,y1) : null,
+      r2: x2.length >= MIN_HALF   ? pearson(x2,y2) : null
+    });
   }
   return out;
+}
+
+function bestOf(tbl, field){
+  const usable = tbl.filter(t => t[field] != null);
+  if(!usable.length) return null;
+  let b = usable[0];
+  usable.forEach(t => { if(Math.abs(t[field]) > Math.abs(b[field])) b = t; });
+  return b;
 }
 
 function renderLags(){
@@ -564,15 +584,19 @@ function renderLags(){
     return;
   }
   const tbl = lagTable();
-  const usable = tbl.filter(t => t.r != null);
-  if(!usable.length){
+  const best = bestOf(tbl, "r");
+  if(!best){
     el.innerHTML = '<div class="load">Yeterli ortak ay yok</div>';
     note.className = "stamp";
     note.textContent = "Korelasyon için en az " + MIN_OVERLAP + " ortak ay gerekiyor.";
     return;
   }
-  let best = usable[0];
-  usable.forEach(t => { if(Math.abs(t.r) > Math.abs(best.r)) best = t; });
+  const b1 = bestOf(tbl, "r1"), b2 = bestOf(tbl, "r2");
+
+  const halves = t => {
+    const f = v => v == null ? "—" : pct(v,2);
+    return "yarılar " + f(t.r1) + " / " + f(t.r2);
+  };
 
   el.innerHTML = tbl.map(t=>{
     const isBest = t.r != null && t.lag === best.lag;
@@ -580,15 +604,25 @@ function renderLags(){
     const val = t.r != null ? pct(t.r,2) : "—";
     const cls = t.r == null ? "" : (t.r >= 0 ? "rise" : "fall");
     return '<div class="row"><span class="who">' + t.lag + ' ay gecikme' +
-      '<span class="meta">n = ' + t.n + (isBest ? ' · en güçlü' : '') + '</span>' +
+      '<span class="meta">n = ' + t.n + ' · ' + halves(t) + (isBest ? ' · en güçlü' : '') + '</span>' +
       '<span class="wbar"><div style="width:' + w.toFixed(1) + '%"></div></span></span>' +
       '<span class="val ' + cls + '">' + val + '<small>r</small></span></div>';
   }).join("");
 
+  let verdict;
+  if(b1 == null || b2 == null){
+    verdict = "Yarılardan biri için yeterli gözlem yok, bölünmüş test yapılamadı.";
+  } else if(b1.lag === b2.lag){
+    verdict = "Tepe iki yarıda da " + b1.lag + " ayda — yapı örneklem boyunca duruyor.";
+  } else {
+    verdict = "Tepe ilk yarıda " + b1.lag + " ay, ikinci yarıda " + b2.lag +
+              " ay — yer değiştiriyor, sabit bir gecikme yok.";
+  }
+
   const atEdge = best.lag === MAX_LAG;
   note.className = "stamp";
   note.textContent = "En güçlü ilişki " + best.lag + " ay gecikmede (r = " + pct(best.r,2) + "). " +
-    (atEdge ? "Tepe test aralığının kenarında — gerçek tepe daha ileride olabilir. " : "") +
+    verdict + " " + (atEdge ? "Tepe test aralığının kenarında — gerçek tepe daha ileride olabilir. " : "") +
     "YoY serileri örtüşen pencereler kullandığı için ardışık gözlemler bağımsız değil; " +
     "r değerleri gerçekte olduğundan güçlü görünür. Yön göstergesi olarak okunmalı, kanıt olarak değil.";
 }
