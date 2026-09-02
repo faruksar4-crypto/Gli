@@ -104,7 +104,7 @@ canvas{width:100%;height:210px;display:block}
 
   <section class="sect">
     <h2>Net Merkez Bankası Dağılımı</h2>
-    <div class="hint">YoY değişimler <b>kendi para biriminde</b> hesaplanır. Fed netleştirilmiştir (WALCL eksi TGA/RRP). RRP ve TGA oynaklığı önlemek için aylık ortalama alınır.</div>
+    <div class="hint">YoY değişimler <b>kendi para biriminde</b> hesaplanır. Fed netleştirilmiştir (WALCL eksi TGA/RRP). RRP ve TGA oynaklığı önlemek için aylık ortalama alınır. Ağırlıklar USD bilanço büyüklüğüne göredir; <b>Fed ile ECB'nin ağırlıkları elle takas edilmiştir</b>.</div>
     <div class="stamp" id="pbocStamp"></div>
     <div id="rows"><div class="load">Veriler alınıyor</div></div>
     <div id="alerts"></div>
@@ -122,6 +122,7 @@ canvas{width:100%;height:210px;display:block}
     PBoC · gömülü seri, resmi bilanço tabloları (2019-01 →)<br>
     Momentum 2020-04'te başlar. Z-Skor 36 aylık pencere (min 18 gözlem); ilk aylar gri çizilir.<br>
     PBoC hariç seri, kalan bankaların ağırlıkları yeniden normalize edilerek hesaplanır.<br>
+    Fed–ECB ağırlık takası açık (SWAP_FED_ECB). Elle verilmiş tercih, veriden türemez.<br>
     Yön ancak momentum 3 ay üst üste aynı tarafa gittiğinde teyitli sayılır.<br>
     İki kadran ayrı ölçer, toplanmaz. Aynı yönü göstermeleri teyit, ayrışmaları soru işaretidir.
   </footer>
@@ -177,6 +178,11 @@ const PBOC = {
 
 const DRAINS = { tga:{id:"WTREGEN", toUnit:1e6}, rrp:{id:"RRPONTSYD", toUnit:1e9} };
 const FX = { EUR:{id:"DEXUSEU", mode:"usdPerUnit"}, JPY:{id:"DEXJPUS", mode:"unitPerUsd"}, CNY:{id:"DEXCHUS", mode:"unitPerUsd"} };
+
+/* Fed ve ECB ağırlıkları yer değiştirsin mi?
+   true  = Fed, ECB'nin USD büyüklüğü ağırlığını alır (elle tercih)
+   false = saf USD büyüklüğü ağırlıkları */
+const SWAP_FED_ECB = true;
 
 const BTC_SOURCES = [
   {name:"Kraken", url:"https://api.kraken.com/0/public/OHLC?pair=XBTUSD&interval=10080",
@@ -317,6 +323,14 @@ async function build(){
 
   const keys = Object.keys(defs); const usdSeries = {};
   keys.forEach(k => { usdSeries[k] = getSMA(data.map(d => d.usd[k]), 12, 1); });
+
+  /* Fed–ECB ağırlık takası. Varsayılan ağırlıklandırma USD bilanço
+     büyüklüğüne göredir; SWAP_FED_ECB açıkken Fed, ECB'nin ağırlığını
+     alır ve tersi. Elle verilmiş bir tercihtir, veriden türemez.
+     Kapatmak için false yap. */
+  if (SWAP_FED_ECB) {
+    const t = usdSeries.fed; usdSeries.fed = usdSeries.ecb; usdSeries.ecb = t;
+  }
 
   /* Ağırlıklı birleşik YoY + PBoC hariç eşleniği.
      PBoC hariç seri, kalan bankaların ağırlıkları kendi içinde
