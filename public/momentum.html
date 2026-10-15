@@ -54,7 +54,7 @@ canvas{width:100%;height:210px;display:block}
 .load{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.16em; text-transform:uppercase;color:var(--faint);padding:36px 0}
 .stress-now{font-family:"Instrument Serif",serif;font-size:46px;line-height:1; font-variant-numeric:tabular-nums;margin:18px 0 6px}
 .stress-now small{font-family:"DM Mono",monospace;font-size:11px;color:var(--faint); letter-spacing:.08em;margin-left:8px}
-#stressChart{height:120px}
+#stressChart, #moveChart{height:120px}
 </style>
 </head>
 <body>
@@ -81,12 +81,22 @@ canvas{width:100%;height:210px;display:block}
     </div>
     <div class="stamp" id="btcNote"></div>
   </section>
+
   <section class="sect">
     <h2>Kadran 2 · Repo Stresi</h2>
     <div class="hint">SOFR eksi IORB, baz puan. Bu <b>bağımsız</b> bir ölçüm: bilanço büyüklüğünü değil, rezervlerin <b>kıtlığını</b> gösterir. Negatif/sıfıra yakın = rezerv bol. Yukarı gidiyorsa repo piyasası sıkışıyor.</div>
     <div class="stress-now" id="stressNow">—</div>
     <canvas id="stressChart" width="1000" height="240"></canvas>
     <div class="hint" id="stressNote"></div>
+  </section>
+
+  <section class="sect">
+    <h2>Kadran 3 · Teminat Oynaklığı (MOVE)</h2>
+    <div class="hint">ICE BofA ABD Hazine Tahvili Oynaklık Endeksi. Howell'ın modelinde <b>100 üzeri</b> teminat baskısını, <b>120 üzeri</b> ise repo piyasasında zorunlu teminat kesintilerini (haircut / kaldıraç çözülmesi) tetikler[span_0](start_span)[span_0](end_span).</div>
+    <div class="stress-now" id="moveNow">—</div>
+    <canvas id="moveChart" width="1000" height="240"></canvas>
+    <div class="hint" id="moveNote"></div>
+    <div class="stamp" id="moveStamp"></div>
   </section>
 
   <section class="sect">
@@ -119,12 +129,13 @@ canvas{width:100%;height:210px;display:block}
   </section>
   <footer class="foot">
     FRED · WALCL, WTREGEN, RRPONTSYD, ECBASSETSW, JPNASSETS, SOFR, IORB<br>
+    Yahoo Finance · ^MOVE (ICE BofA US Bond Market Option Volatility Estimate)<br>
     PBoC · gömülü seri, resmi bilanço tabloları (2019-01 →)<br>
     Momentum 2020-04'te başlar. Z-Skor 36 aylık pencere (min 18 gözlem); ilk aylar gri çizilir.<br>
     PBoC hariç seri, kalan bankaların ağırlıkları yeniden normalize edilerek hesaplanır.<br>
     Fed–ECB ağırlık takası açık (SWAP_FED_ECB). Elle verilmiş tercih, veriden türemez.<br>
     Yön ancak momentum 3 ay üst üste aynı tarafa gittiğinde teyitli sayılır.<br>
-    İki kadran ayrı ölçer, toplanmaz. Aynı yönü göstermeleri teyit, ayrışmaları soru işaretidir.
+    Üç kadran ayrı ölçer, toplanmaz. Aynı yönü göstermeleri teyit, ayrışmaları soru işaretidir.
   </footer>
 </div>
 
@@ -179,9 +190,6 @@ const PBOC = {
 const DRAINS = { tga:{id:"WTREGEN", toUnit:1e6}, rrp:{id:"RRPONTSYD", toUnit:1e9} };
 const FX = { EUR:{id:"DEXUSEU", mode:"usdPerUnit"}, JPY:{id:"DEXJPUS", mode:"unitPerUsd"}, CNY:{id:"DEXCHUS", mode:"unitPerUsd"} };
 
-/* Fed ve ECB ağırlıkları yer değiştirsin mi?
-   true  = Fed, ECB'nin USD büyüklüğü ağırlığını alır (elle tercih)
-   false = saf USD büyüklüğü ağırlıkları */
 const SWAP_FED_ECB = true;
 
 const BTC_SOURCES = [
@@ -251,9 +259,6 @@ function monthGap(from, to){
   return (ty-fy)*12 + (tm-fm);
 }
 
-/* Her kaynağı önce proxy üzerinden, olmazsa doğrudan dener.
-   Hepsi başarısız olursa hata mesajlarını birleştirip fırlatır —
-   sessizce yutmaz, aksi halde eğri kaybolur ve sebebi görünmez. */
 async function buildBtc(){
   const errs = [];
   for(const src of BTC_SOURCES){
@@ -308,8 +313,19 @@ async function build(){
   nat.ecb = monthlyLast(await getSeries(BANKS.ecb.id));
   nat.boj = monthlyLast(await getSeries(BANKS.boj.id));
   nat.pboc = new Map(PBOC.data);
-  const defs = {...BANKS, pboc:PBOC};
+
   const months = [...nat.fed.keys()].sort();
+
+  /* PBoC gömülü serisi geride kaldığında endeksin donmasını önlemek için
+     eksik güncel aylara son bilinen PBoC değerini taşır (carry-forward). */
+  const pbocLastEntry = PBOC.data[PBOC.data.length - 1];
+  for (const m of months) {
+    if (m > pbocLastEntry[0] && !nat.pboc.has(m)) {
+      nat.pboc.set(m, pbocLastEntry[1]);
+    }
+  }
+
+  const defs = {...BANKS, pboc:PBOC};
 
   const data = months.map(m => {
     const py = prevYear(m); const row = { month: m, usd: {}, yoy: {} };
@@ -324,17 +340,10 @@ async function build(){
   const keys = Object.keys(defs); const usdSeries = {};
   keys.forEach(k => { usdSeries[k] = getSMA(data.map(d => d.usd[k]), 12, 1); });
 
-  /* Fed–ECB ağırlık takası. Varsayılan ağırlıklandırma USD bilanço
-     büyüklüğüne göredir; SWAP_FED_ECB açıkken Fed, ECB'nin ağırlığını
-     alır ve tersi. Elle verilmiş bir tercihtir, veriden türemez.
-     Kapatmak için false yap. */
   if (SWAP_FED_ECB) {
     const t = usdSeries.fed; usdSeries.fed = usdSeries.ecb; usdSeries.ecb = t;
   }
 
-  /* Ağırlıklı birleşik YoY + PBoC hariç eşleniği.
-     PBoC hariç seri, kalan bankaların ağırlıkları kendi içinde
-     yeniden normalize edilerek hesaplanır. */
   const gli_yoy = data.map((d, i) => {
     let totalUsd = 0, valid = true;
     keys.forEach(k => { if (usdSeries[k][i] == null || d.yoy[k] == null) valid = false; else totalUsd += usdSeries[k][i]; });
@@ -354,8 +363,6 @@ async function build(){
   const m_vals = getDiff(yoyVals, 3);
   const mEx    = getDiff(exVals, 3);
 
-  /* Banka bazında momentum — öncülük testinde tek bankayı
-     seyreltilmemiş haliyle sınayabilmek için. */
   const bankM = {};
   keys.forEach(k => { bankM[k] = getDiff(data.map(d => d.yoy[k] != null ? d.yoy[k] : null), 3); });
 
@@ -391,8 +398,6 @@ function btcYoy(month){
   if(a == null || b == null || b === 0) return null; return (a/b - 1) * 100;
 }
 
-/* Yön, momentum 3 ay üst üste aynı tarafa gittiğinde teyitli sayılır.
-   Tek aylık dönüşler gürültüdür. 1 = yukarı, -1 = aşağı, 0 = teyitsiz. */
 function trendDir(){
   const t = rows.slice(-3).map(r => r.m);
   if (t.length < 3 || t.some(v => v == null)) return 0;
@@ -435,7 +440,6 @@ function draw(){
     c.stroke();
   }
 
-  /* PBoC hariç momentum — aynı eksende, kesikli */
   c.strokeStyle = "rgba(138,154,165,.8)"; c.lineWidth = 1.5; c.setLineDash([4,4]);
   c.beginPath(); let onEx = false;
   vis.forEach((r,i)=>{ if(r.mEx == null){ onEx = false; return; } onEx ? c.lineTo(X(i),Y(r.mEx)) : (c.moveTo(X(i),Y(r.mEx)), onEx = true); });
@@ -526,6 +530,111 @@ function renderStress(){
   drawStress();
 }
 
+/* ── Kadran 3: Tahvil Oynaklığı / Teminat Baskısı (MOVE Endeksi) ── */
+let moveData = [];
+let moveSource = "";
+
+async function buildMove(){
+  const yUrl = "https://query1.finance.yahoo.com/v8/finance/chart/%5EMOVE?range=1y&interval=1d";
+  const routes = [
+    {name:"Proxy", url: viaProxy(yUrl)},
+    {name:"AllOrigins", url: "https://api.allorigins.win/raw?url=" + encodeURIComponent(yUrl)},
+    {name:"Doğrudan", url: yUrl}
+  ];
+  const errs = [];
+  for(const rt of routes){
+    try{
+      const ctl = new AbortController();
+      const t = setTimeout(()=>ctl.abort(), 15000);
+      let r;
+      try{ r = await fetch(rt.url, {signal: ctl.signal}); }
+      finally{ clearTimeout(t); }
+      if(!r.ok) throw new Error("HTTP " + r.status);
+      const j = await r.json();
+      const res = j.chart?.result?.[0];
+      if(!res) throw new Error("boş veri");
+      const ts = res.timestamp || [];
+      const closes = res.indicators?.quote?.[0]?.close || [];
+      const out = [];
+      for(let i=0; i<ts.length; i++){
+        const v = closes[i];
+        if(v != null && isFinite(v)){
+          const d = new Date(ts[i]*1000).toISOString().slice(0,10);
+          out.push({date: d, val: v});
+        }
+      }
+      if(out.length < 10) throw new Error("yetersiz gün (" + out.length + ")");
+      moveSource = "Yahoo Finance (^MOVE · " + rt.name + ")";
+      return out.slice(-180);
+    }catch(e){
+      errs.push(rt.name + ": " + (e.name === "AbortError" ? "zaman aşımı" : e.message));
+    }
+  }
+  throw new Error(errs.join(" · "));
+}
+
+function drawMove(){
+  const cv = document.getElementById("moveChart"); if(!cv || moveData.length < 2) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth, H = 120; cv.width = W*dpr; cv.height = H*dpr;
+  const c = cv.getContext("2d"); c.setTransform(dpr,0,0,dpr,0,0); c.clearRect(0,0,W,H);
+
+  const vals = moveData.map(m=>m.val);
+  let lo = Math.min(...vals, 75), hi = Math.max(...vals, 128);
+  const pad = (hi-lo)*0.15 || 5; lo -= pad; hi += pad;
+  const L = 40, R = W - 10, T = 10, B = H - 20;
+  const X = i => L + (i/(moveData.length-1))*(R-L);
+  const Y = v => B - ((v-lo)/(hi-lo))*(B-T);
+
+  c.font = "10px 'DM Mono', monospace"; c.textBaseline = "middle"; c.textAlign = "right";
+  
+  [80, 100, 120].forEach(lvl => {
+    if(lvl >= lo && lvl <= hi){
+      const y = Y(lvl);
+      c.strokeStyle = lvl === 120 ? "rgba(224,112,90,0.5)" : (lvl === 100 ? "rgba(232,163,61,0.45)" : "#233440");
+      c.lineWidth = 1; c.setLineDash([3,4]);
+      c.beginPath(); c.moveTo(L,y); c.lineTo(R,y); c.stroke();
+      c.fillStyle = lvl === 120 ? "#E0705A" : (lvl === 100 ? "#E8A33D" : "#5A6B77");
+      c.fillText(lvl.toString(), L-8, y);
+    }
+  });
+  c.setLineDash([]);
+
+  const lastM = moveData[moveData.length-1];
+  const strokeCol = lastM.val >= 120 ? "#E0705A" : (lastM.val >= 100 ? "#E8A33D" : "#5FBFA0");
+  c.strokeStyle = strokeCol; c.lineWidth = 1.8; c.lineJoin = "round"; c.lineCap = "round";
+  c.beginPath();
+  moveData.forEach((m,i)=> i ? c.lineTo(X(i),Y(m.val)) : c.moveTo(X(i),Y(m.val)));
+  c.stroke();
+
+  c.fillStyle = strokeCol;
+  c.beginPath(); c.arc(X(moveData.length-1), Y(lastM.val), 3.5, 0, Math.PI*2); c.fill();
+
+  c.fillStyle = "#5A6B77"; c.textBaseline = "top"; c.textAlign = "left";
+  c.fillText(moveData[0].date, L, B+6);
+  c.textAlign = "right"; c.fillText(lastM.date, R, B+6);
+}
+
+function renderMove(){
+  const lastM = moveData[moveData.length-1];
+  const v = lastM.val;
+  const el = document.getElementById("moveNow");
+  el.innerHTML = `${v.toFixed(1)}<small>PUAN · ${lastM.date}</small>`;
+  el.style.color = v >= 120 ? "var(--fall)" : (v >= 100 ? "var(--btc)" : "var(--rise)");
+
+  const win = moveData.slice(-60).map(m=>m.val);
+  const ort = win.reduce((a,b)=>a+b,0) / win.length;
+
+  let durum = `60g ortalama ${ort.toFixed(1)}. Tahvil oynaklığı sakin (<100); teminat çarpanı destekleyici.`;
+  if(v >= 120) durum = `60g ortalama ${ort.toFixed(1)}. Tehlike eşiği (>120) aşıldı! Repo piyasasında teminat kesintileri (haircut) ve likidite daralması riski yüksek.`;
+  else if(v >= 100) durum = `60g ortalama ${ort.toFixed(1)}. Uyarı bölgesinde (100–120). Oynaklık yüksek; teminat kesintileri gecikmeli olarak sıkılaşabilir.`;
+
+  document.getElementById("moveNote").textContent = durum;
+  const st = document.getElementById("moveStamp");
+  if(st){ st.className = "stamp"; st.textContent = "MOVE kaynağı: " + moveSource + " · " + moveData.length + " işlem günü."; }
+  drawMove();
+}
+
 function pct(v,d){ return (v>=0?"+":"−") + Math.abs(v).toFixed(d==null?1:d); }
 
 /* ── Öncülük testi: PBoC hariç momentum (t) → BTC YoY (t+gecikme) ── */
@@ -555,9 +664,6 @@ const LAG_SERIES = {
 };
 let lagSeries = "ex";
 
-/* Her gecikme için üç korelasyon: tüm örneklem ve iki yarı ayrı ayrı.
-   Tepe iki yarıda da aynı yerdeyse yapı gerçek; kayıyorsa
-   gördüğümüz şey tek bir döngünün izi ya da yöntem etkisi. */
 function lagTable(){
   const pick = LAG_SERIES[lagSeries].pick;
   const mid = Math.floor(rows.length / 2);
@@ -641,15 +747,13 @@ function renderLags(){
     "r değerleri gerçekte olduğundan güçlü görünür. Yön göstergesi olarak okunmalı, kanıt olarak değil.";
 }
 
-/* PBoC gömülü serisi %29 ağırlıkta ve elle güncelleniyor.
-   Donarsa tüm endeksin işaretini bozar, o yüzden tazeliği ekranda. */
 function renderPbocStamp(indexMonth){
   const pbocLast = PBOC.data[PBOC.data.length-1][0];
   const gap = monthGap(pbocLast, indexMonth);
   const el = document.getElementById("pbocStamp");
-  if (gap >= 2) {
+  if (gap >= 1) {
     el.className = "stamp stale";
-    el.textContent = `PBoC gömülü serisi ${pbocLast} · endeks ayı ${indexMonth} · ${gap} ay geride. Ağırlığı %29; bu boşluk birleşik değerin işaretini bozabilir.`;
+    el.textContent = `PBoC gömülü serisi ${pbocLast} · endeks ayı ${indexMonth} · ${gap} ay geride (son değer ileri taşındı). Ağırlığı ~%29; resmi veri girilene kadar PBoC hariç seriyi dikkate al.`;
   } else {
     el.className = "stamp";
     el.textContent = `PBoC gömülü serisi ${pbocLast} · endeks ayı ${indexMonth} · güncel.`;
@@ -699,6 +803,12 @@ async function load(){
       document.getElementById("stressNow").textContent = "—";
       document.getElementById("stressNote").textContent = "SOFR/IORB verisi alınamadı.";
     }
+    try{ moveData = await buildMove(); if(moveData.length > 1) renderMove(); }catch(e){
+      document.getElementById("moveNow").textContent = "—";
+      document.getElementById("moveNote").textContent = "MOVE verisi alınamadı.";
+      const st = document.getElementById("moveStamp");
+      if(st){ st.className = "stamp stale"; st.textContent = "MOVE hatası: " + e.message; }
+    }
     try{
       const b = await buildBtc();
       btcMap = b.map; draw();
@@ -728,7 +838,7 @@ document.querySelectorAll("#lagPick button").forEach(b=>{
   };
 });
 
-let rt; addEventListener("resize", ()=>{ clearTimeout(rt); rt = setTimeout(()=>{ draw(); drawStress(); },150); });
+let rt; addEventListener("resize", ()=>{ clearTimeout(rt); rt = setTimeout(()=>{ draw(); drawStress(); drawMove(); },150); });
 
 (function(){
   document.getElementById("cfgKey").value = fredKey(); document.getElementById("cfgPx").value = readStore(PX_NAMES);
