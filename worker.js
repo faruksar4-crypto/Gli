@@ -5,7 +5,9 @@ const ALLOWED = [
   'stats.bis.org',
   'api.db.nomics.world',
   'api.kraken.com',
-  'api.exchange.coinbase.com'
+  'api.exchange.coinbase.com',
+  'query1.finance.yahoo.com',
+  'query2.finance.yahoo.com'
 ];
 
 const CORS = {
@@ -17,6 +19,38 @@ const J = (obj, status) => new Response(JSON.stringify(obj), {
   status: status,
   headers: CORS
 });
+
+const YAHOO_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept': 'application/json,text/plain,*/*',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Referer': 'https://finance.yahoo.com/'
+};
+
+async function upstream(u) {
+  const isYahoo = u.hostname.endsWith('.finance.yahoo.com');
+  const hosts = isYahoo
+    ? [u.hostname, u.hostname === 'query1.finance.yahoo.com' ? 'query2.finance.yahoo.com' : 'query1.finance.yahoo.com']
+    : [u.hostname];
+
+  let res, err;
+  for (const h of hosts) {
+    const t = new URL(u.toString());
+    t.hostname = h;
+    try {
+      res = await fetch(t.toString(), {
+        headers: isYahoo ? YAHOO_HEADERS : {},
+        signal: AbortSignal.timeout(10000),
+        cf: isYahoo ? { cacheEverything: true, cacheTtlByStatus: { '200-299': 300, '400-599': 0 } } : undefined
+      });
+      if (res.ok) return res;
+    } catch (e) {
+      err = e;
+    }
+  }
+  if (res) return res;
+  throw err;
+}
 
 export default {
   async fetch(request, env) {
@@ -41,7 +75,7 @@ export default {
     }
 
     try {
-      const r = await fetch(u.toString(), { signal: AbortSignal.timeout(10000) });
+      const r = await upstream(u);
       const text = await r.text();
       return new Response(text, { status: r.status, headers: CORS });
     } catch (e) {
