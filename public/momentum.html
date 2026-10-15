@@ -17,15 +17,13 @@ body{ background:var(--bg); color:var(--ink); font-family:"Sora",system-ui,sans-
 .mast .date{font-family:"DM Mono",monospace;font-size:11px;color:var(--faint)}
 .hero{padding:24px 0 20px;text-align:center}
 .kicker{font-family:"DM Mono",monospace;font-size:10.5px;letter-spacing:.16em; text-transform:uppercase;color:var(--dim);margin-bottom:10px}
-.gauge-box{position:relative;width:100%;max-width:280px;height:150px;margin:0 auto 10px}
+.gauge-box{position:relative;width:100%;max-width:320px;height:180px;margin:0 auto 5px}
 .gauge-box canvas{width:100%;height:100%;display:block}
-.gauge-val{font-family:"Instrument Serif",serif;font-size:42px;line-height:1;margin-top:-10px}
+.gauge-val{font-family:"Instrument Serif",serif;font-size:42px;line-height:1;margin-top:-5px}
 .sub{font-size:14px;color:var(--ink);margin-top:12px;line-height:1.5;font-weight:300}
-.sub .split{display:block;margin-top:5px;color:var(--dim)}
 .sub .state{display:block;margin-top:6px;font-weight:400}
 .legend{display:flex;flex-wrap:wrap;gap:12px;margin:20px 0 10px; font-family:"DM Mono",monospace;font-size:10px;color:var(--dim);letter-spacing:.03em}
 .legend i{display:inline-block;width:14px;height:2px;vertical-align:middle; margin-right:4px;border-radius:2px}
-.legend i.dash{background:none;border-top:2px dashed var(--dim);height:0}
 canvas{width:100%!important;height:auto!important;display:block}
 .ranges{display:flex;margin-top:14px;background:var(--panel);border-radius:9px;padding:3px}
 .ranges button{flex:1;appearance:none;background:transparent;border:0;padding:10px 4px; cursor:pointer;border-radius:7px;font-family:"DM Mono",monospace;font-size:11px; color:var(--dim);letter-spacing:.05em}
@@ -50,12 +48,12 @@ canvas{width:100%!important;height:auto!important;display:block}
 </head>
 <body>
 <div class="wrap">
-  <header class="mast"><span class="name">Küresel Likidite İndeksi</span><span class="date" id="asOf">—</span></header>
+  <header class="mast"><span class="name">Batı Likidite İndeksi</span><span class="date" id="asOf">—</span></header>
   
   <section class="hero">
-    <div class="kicker">Kadran 1 · Net CB Likiditesi (Yıllık % Değişim)</div>
+    <div class="kicker">Kadran 1 · Fed (Net) + ECB/BoJ Likidite (YoY %)</div>
     <div class="gauge-box">
-      <canvas id="gaugeCanvas" width="560" height="300"></canvas>
+      <canvas id="gaugeCanvas" width="640" height="340"></canvas>
     </div>
     <div class="gauge-val" id="gaugeVal">—</div>
     <div class="sub" id="sub"><em>hesaplanıyor</em></div>
@@ -63,8 +61,7 @@ canvas{width:100%!important;height:auto!important;display:block}
 
   <section>
     <div class="legend" id="legend">
-      <span><i style="background:linear-gradient(90deg,#DC2626,#059669)"></i>Birleşik YoY %</span>
-      <span><i class="dash"></i>PBoC hariç YoY %</span>
+      <span><i style="background:linear-gradient(90deg,#DC2626,#059669)"></i>Batı Birleşik YoY %</span>
       <span><i style="background:#D97706"></i>BTC YoY %</span>
     </div>
     <canvas id="chart" width="1000" height="420"></canvas>
@@ -91,7 +88,7 @@ canvas{width:100%!important;height:auto!important;display:block}
     <div class="stress-now" id="moveNow">—</div>
     <canvas id="moveChart" width="1000" height="240"></canvas>
     <div class="hint" id="moveNote"></div>
-    <div class="stamp" id="moveStamp"></div>
+    <div class="stamp" id="moveStamp">PBoC devreden çıkarıldı.</div>
   </section>
 
   <div id="alerts"></div>
@@ -107,7 +104,6 @@ canvas{width:100%!important;height:auto!important;display:block}
   <footer class="foot">
     FRED · WALCL, WTREGEN, RRPONTSYD, ECBASSETSW, JPNASSETS, SOFR, IORB<br>
     Yahoo Finance · ^MOVE (ICE BofA US Bond Market Option Volatility Estimate)<br>
-    PBoC · gömülü seri, resmi bilanço tabloları (2019-01 →)<br>
     Üç kadran ayrı ölçer, toplanmaz. Aynı yönü göstermeleri teyit, ayrışmaları soru işaretidir.
   </footer>
 </div>
@@ -128,42 +124,11 @@ function fredUrl(id){
 const BANKS = {
   fed:{id:"WALCL", cur:"USD", toUnit:1e6, label:"Fed (Net)", meta:"WALCL eksi TGA/RRP"},
   ecb:{id:"ECBASSETSW", cur:"EUR", toUnit:1e6, label:"ECB", meta:"ECBASSETSW · euro"},
-  boj:{id:"JPNASSETS", cur:"JPY", toUnit:1e8, label:"BoJ", meta:"JPNASSETS · yen"},
-};
-
-const PBOC = {
-  cur:"CNY", toUnit:1e8, label:"PBoC", meta:"gömülü seri · yuan",
-  data:[
-    ["2019-01",363271.82],["2019-02",356209.39],["2019-03",348552.63],["2019-04",348592.42],
-    ["2019-05",359014.72],["2019-06",363595.27],["2019-07",357952.87],["2019-08",360352.90],
-    ["2019-09",361966.76],["2019-10",359640.48],["2019-11",363075.36],["2019-12",371130.48],
-    ["2020-01",373495.10],["2020-02",361021.26],["2020-03",365374.74],["2020-04",360347.67],
-    ["2020-05",367870.74],["2020-06",363931.30],["2020-07",357924.90],["2020-08",365052.29],
-    ["2020-09",374727.69],["2020-10",371812.72],["2020-11",381989.33],["2020-12",387675.54],
-    ["2021-01",389131.46],["2021-02",383093.17],["2021-03",382772.77],["2021-04",382315.47],
-    ["2021-05",386916.77],["2021-06",389897.36],["2021-07",380501.62],["2021-08",379487.47],
-    ["2021-09",391973.65],["2021-10",394919.35],["2021-11",393114.26],["2021-12",395702.25],
-    ["2022-01",403125.23],["2022-02",406229.00],["2022-03",398725.89],["2022-04",389336.03],
-    ["2022-05",385319.77],["2022-06",392554.60],["2022-07",385627.47],["2022-08",384642.28],
-    ["2022-09",397402.27],["2022-10",398871.25],["2022-11",401527.62],["2022-12",416783.78],
-    ["2023-01",422064.71],["2023-02",417679.36],["2023-03",421007.27],["2023-04",412654.20],
-    ["2023-05",406420.84],["2023-06",418062.84],["2023-07",408091.68],["2023-08",416840.45],
-    ["2023-09",427354.89],["2023-10",433259.80],["2023-11",440654.63],["2023-12",456944.14],
-    ["2024-01",456426.77],["2024-02",445693.9],["2024-03",438860.69],["2024-04",428425.22],
-    ["2024-05",429537.58],["2024-06",436546.79],["2024-07",436469.16],["2024-08",438897.54],
-    ["2024-09",455050.63],["2024-10",447357.48],["2024-11",453707.1],["2024-12",440513.31],
-    ["2025-01",466574.72],["2025-02",470205.33],["2025-03",455311.81],["2025-04",455203.33],
-    ["2025-05",450997.98],["2025-06",457823.75],["2025-07",459493.86],["2025-08",463254.06],
-    ["2025-09",471391.38],["2025-10",470626.61],["2025-11",472969.7],["2025-12",481591.34],
-    ["2026-01",493189.91],["2026-02",499862.79],["2026-03",491398.71],["2026-04",486327.5],
-    ["2026-05",483806.92],["2026-06",494334.98],["2026-07",502068.47]
-  ]
+  boj:{id:"JPNASSETS", cur:"JPY", toUnit:1e8, label:"BoJ", meta:"JPNASSETS · yen"}
 };
 
 const DRAINS = { tga:{id:"WTREGEN", toUnit:1e6}, rrp:{id:"RRPONTSYD", toUnit:1e9} };
-const FX = { EUR:{id:"DEXUSEU", mode:"usdPerUnit"}, JPY:{id:"DEXJPUS", mode:"unitPerUsd"}, CNY:{id:"DEXCHUS", mode:"unitPerUsd"} };
-
-const SWAP_FED_ECB = true;
+const FX = { EUR:{id:"DEXUSEU", mode:"usdPerUnit"}, JPY:{id:"DEXJPUS", mode:"unitPerUsd"} };
 
 const BTC_SOURCES = [
   {name:"Kraken", url:"https://api.kraken.com/0/public/OHLC?pair=XBTUSD&interval=10080",
@@ -250,17 +215,29 @@ async function buildBtc(){
 }
 
 async function build(){
-  const fx = {};
-  for(const [cur,cfg] of Object.entries(FX)) fx[cur] = monthlyLast(await getSeries(cfg.id));
+  const [eurObs, jpyObs, walclObs, tgaObs, rrpObs, ecbObs, bojObs] = await Promise.all([
+    getSeries(FX.EUR.id),
+    getSeries(FX.JPY.id),
+    getSeries(BANKS.fed.id),
+    getSeries(DRAINS.tga.id),
+    getSeries(DRAINS.rrp.id),
+    getSeries(BANKS.ecb.id),
+    getSeries(BANKS.boj.id)
+  ]);
+
+  const fx = {
+    EUR: monthlyLast(eurObs),
+    JPY: monthlyLast(jpyObs)
+  };
+  
   const rate = (cur,m)=>{
     if(cur === "USD") return 1; const v = fx[cur]?.get(m);
     if(v == null || v <= 0) return null; return FX[cur].mode === "usdPerUnit" ? v : 1/v;
   };
 
-  const nat = {};
-  const walcl = monthlyLast(await getSeries(BANKS.fed.id));
-  const tga = monthlyAvg(await getSeries(DRAINS.tga.id));
-  const rrp = monthlyAvg(await getSeries(DRAINS.rrp.id));
+  const walcl = monthlyLast(walclObs);
+  const tga = monthlyAvg(tgaObs);
+  const rrp = monthlyAvg(rrpObs);
 
   const fedNet = new Map();
   for(const [m, v] of walcl) {
@@ -268,21 +245,15 @@ async function build(){
     if (t_val == null || r_val == null) continue;
     fedNet.set(m, v - (t_val * (DRAINS.tga.toUnit / BANKS.fed.toUnit)) - (r_val * (DRAINS.rrp.toUnit / BANKS.fed.toUnit)));
   }
-  nat.fed = fedNet;
-  nat.ecb = monthlyLast(await getSeries(BANKS.ecb.id));
-  nat.boj = monthlyLast(await getSeries(BANKS.boj.id));
-  nat.pboc = new Map(PBOC.data);
+  
+  const nat = {
+    fed: fedNet,
+    ecb: monthlyLast(ecbObs),
+    boj: monthlyLast(bojObs)
+  };
 
   const months = [...nat.fed.keys()].sort();
-
-  const pbocLastEntry = PBOC.data[PBOC.data.length - 1];
-  for (const m of months) {
-    if (m > pbocLastEntry[0] && !nat.pboc.has(m)) {
-      nat.pboc.set(m, pbocLastEntry[1]);
-    }
-  }
-
-  const defs = {...BANKS, pboc:PBOC};
+  const defs = BANKS;
 
   const data = months.map(m => {
     const py = prevYear(m); const row = { month: m, usd: {}, yoy: {} };
@@ -297,22 +268,13 @@ async function build(){
   const keys = Object.keys(defs); const usdSeries = {};
   keys.forEach(k => { usdSeries[k] = getSMA(data.map(d => d.usd[k]), 12, 1); });
 
-  if (SWAP_FED_ECB) {
-    const t = usdSeries.fed; usdSeries.fed = usdSeries.ecb; usdSeries.ecb = t;
-  }
-
   const gli_yoy = data.map((d, i) => {
     let totalUsd = 0, valid = true;
     keys.forEach(k => { if (usdSeries[k][i] == null || d.yoy[k] == null) valid = false; else totalUsd += usdSeries[k][i]; });
     if (!valid || totalUsd === 0) return null;
     let yoySum = 0; keys.forEach(k => { yoySum += (usdSeries[k][i] / totalUsd) * d.yoy[k]; });
 
-    let exUsd = 0;
-    keys.forEach(k => { if (k !== "pboc") exUsd += usdSeries[k][i]; });
-    let exSum = null;
-    if (exUsd > 0) { exSum = 0; keys.forEach(k => { if (k !== "pboc") exSum += (usdSeries[k][i] / exUsd) * d.yoy[k]; }); }
-
-    return { val: yoySum, ex: exSum, totalUsd };
+    return { val: yoySum, totalUsd };
   });
 
   const out = [];
@@ -322,7 +284,6 @@ async function build(){
       out.push({
         month: data[i].month,
         combined: val,
-        ex: gli_yoy[i].ex,
         usdTotal: gli_yoy[i].totalUsd,
         color: val >= 0 ? "#059669" : "#DC2626"
       });
@@ -345,9 +306,9 @@ function drawGauge(val){
   ctx.clearRect(0,0,W,H);
 
   const cx = W / 2;
-  const cy = H - 25;
-  const r = 110;
-  const thickness = 22;
+  const cy = H - 35;
+  const r = 180;
+  const thickness = 36;
 
   const segments = [
     {start: Math.PI, end: Math.PI + Math.PI*0.2, color: "#DC2626"}, 
@@ -376,7 +337,7 @@ function drawGauge(val){
 
   ctx.beginPath();
   ctx.moveTo(0, -6);
-  ctx.lineTo(r - 12, 0);
+  ctx.lineTo(r - 18, 0);
   ctx.lineTo(0, 6);
   ctx.fillStyle = "#111827";
   ctx.fill();
@@ -384,7 +345,7 @@ function drawGauge(val){
   ctx.restore();
 
   ctx.beginPath();
-  ctx.arc(cx, cy, 10, 0, Math.PI * 2);
+  ctx.arc(cx, cy, 12, 0, Math.PI * 2);
   ctx.fillStyle = "#F4F6F8";
   ctx.fill();
   ctx.lineWidth = 3;
@@ -438,13 +399,6 @@ function drawChart(canvasId, visData, valAccessor, hasBtcOverlay){
     c.stroke();
   }
 
-  if(hasB && visData[0].ex !== undefined){
-    c.strokeStyle = "rgba(107,114,128,.8)"; c.lineWidth = 1.5; c.setLineDash([4,4]);
-    c.beginPath(); let onEx = false;
-    visData.forEach((r,i)=>{ if(r.ex == null){ onEx = false; return; } onEx ? c.lineTo(X(i),Y(r.ex)) : (c.moveTo(X(i),Y(r.ex)), onEx = true); });
-    c.stroke(); c.setLineDash([]);
-  }
-
   c.lineWidth = 2.2; let prevValid = null;
   visData.forEach((r,i)=>{
     const val = valAccessor(r);
@@ -471,14 +425,18 @@ function draw(){ drawChart("chart", years ? rows.slice(-years*12) : rows, r => r
 
 let stress = [];
 async function buildStress(){
-  const raw = obs => { const m = new Map();
-    for(const o of obs){ const v = parseFloat(o.value); if(isFinite(v)) m.set(o.date, v); } return m; };
-  const sofr = raw(await getSeries("SOFR"));
-  const iorb = raw(await getSeries("IORB"));
+  const [sofrObs, iorbObs] = await Promise.all([getSeries("SOFR"), getSeries("IORB")]);
+  const sofrMap = new Map();
+  for(const o of sofrObs){ const v = parseFloat(o.value); if(isFinite(v)) sofrMap.set(o.date, v); }
+  
   const out = [];
-  for(const [d, s] of sofr){
-    const i = iorb.get(d);
-    if(i != null) out.push({month: d, combined: (s - i) * 100, color: "#4B5563"});
+  for(const o of iorbObs){
+    const d = o.date;
+    const i = parseFloat(o.value);
+    const s = sofrMap.get(d);
+    if(s != null && isFinite(i)){
+      out.push({month: d, combined: (s - i) * 100, color: "#4B5563"});
+    }
   }
   out.sort((a,b)=> a.month < b.month ? -1 : 1);
   return out.slice(-180);
@@ -506,7 +464,7 @@ function drawStressChart(){
   }
   c.setLineDash([]);
   if(lo < 0 && hi > 0){
-    const zy = Y(0); c.strokeStyle = "rgba(17,24,39,0.25"; c.lineWidth = 1;
+    const zy = Y(0); c.strokeStyle = "rgba(17,24,39,0.25)"; c.lineWidth = 1;
     c.beginPath(); c.moveTo(L,zy); c.lineTo(R,zy); c.stroke();
   }
 
@@ -525,6 +483,7 @@ function drawStressChart(){
 }
 
 function renderStress(){
+  if(!stress.length) return;
   const lastS = stress[stress.length-1];
   const bp = lastS.combined;
   const el = document.getElementById("stressNow");
@@ -623,6 +582,7 @@ function drawMoveChart(){
 }
 
 function renderMove(){
+  if(!moveData.length) return;
   const lastM = moveData[moveData.length-1];
   const v = lastM.combined;
   const el = document.getElementById("moveNow");
@@ -656,12 +616,8 @@ function render(){
 
   const durum = up ? "Yıllık bazda net merkez bankası likiditesi genişliyor (Olumlu)." : "Yıllık bazda net merkez bankası likiditesi daralıyor (Olumsuz).";
 
-  const splitTxt = last.ex != null
-    ? `<span class="split">PBoC hariç <b>${pct(last.ex, 2)}%</b> · PBoC katkısı ${pct(last.combined - last.ex, 2)} puan</span>`
-    : "";
-
   document.getElementById("sub").innerHTML =
-    `Toplam Bilanço (12a Ort.) <b>$${last.usdTotal.toFixed(1)}T</b>${splitTxt}<span class="state" style="color:${up ? 'var(--rise)' : 'var(--fall)'}">${durum}</span>`;
+    `Toplam Bilanço (12a Ort.) <b>$${last.usdTotal.toFixed(1)}T</b><span class="state" style="color:${up ? 'var(--rise)' : 'var(--fall)'}">${durum}</span>`;
   
   draw();
 }
@@ -669,18 +625,19 @@ function render(){
 async function load(){
   try{
     rows = await build(); if(!rows.length) throw new Error("Yeterli ortak ay bulunamadı."); render();
-    try{ stress = await buildStress(); if(stress.length > 1) renderStress(); }catch(e){
+    try{ 
+      stress = await buildStress(); 
+      if(stress.length > 1) renderStress(); 
+    }catch(e){
       document.getElementById("stressNow").textContent = "—";
-      document.getElementById("stressNote").textContent = "SOFR/IORB verisi alınamadı.";
+      document.getElementById("stressNote").textContent = "SOFR/IORB verisi alınamadı: " + e.message;
     }
     try{ 
       moveData = await buildMove(); 
       if(moveData.length > 1) renderMove(); 
     }catch(e){
-      document.getElementById("moveNow").textContent = "104.5";
-      document.getElementById("moveNote").textContent = "Canlı MOVE verisi CORS engeline takıldı (Simüle ediliyor).";
-      moveData = Array.from({length:60}, (_,i)=>({month: "2026-10-" + String(i+1).padStart(2,"0"), combined: 102 + Math.sin(i/5)*4}));
-      renderMove();
+      document.getElementById("moveNow").textContent = "—";
+      document.getElementById("moveNote").textContent = "MOVE alınamadı: " + e.message;
     }
     try{
       const b = await buildBtc();
