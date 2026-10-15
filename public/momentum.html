@@ -2,31 +2,31 @@
 <html lang="tr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Küresel Likidite İndeksi</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Sora:wght@300;400;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{ --bg:#FFFFFF; --panel:#F4F6F8; --line:#E5E7EB; --ink:#111827; --dim:#6B7280; --faint:#9CA3AF; --rise:#059669; --fall:#DC2626; --btc:#D97706; }
-*{box-sizing:border-box} html,body{margin:0;padding:0}
+*{box-sizing:border-box} html,body{margin:0;padding:0;overflow-x:hidden;width:100%}
 body{ background:var(--bg); color:var(--ink); font-family:"Sora",system-ui,sans-serif; font-weight:300; -webkit-font-smoothing:antialiased; padding:0 0 56px; }
-.wrap{max-width:560px;margin:0 auto;padding:0 20px}
+.wrap{width:100%;max-width:560px;margin:0 auto;padding:0 16px}
 .mast{display:flex;justify-content:space-between;align-items:baseline; padding:24px 0 16px;border-bottom:1px solid var(--line)}
 .mast .name{font-family:"DM Mono",monospace;font-size:11px; letter-spacing:.18em;text-transform:uppercase;color:var(--dim)}
 .mast .date{font-family:"DM Mono",monospace;font-size:11px;color:var(--faint)}
 .hero{padding:24px 0 20px;text-align:center}
 .kicker{font-family:"DM Mono",monospace;font-size:10.5px;letter-spacing:.16em; text-transform:uppercase;color:var(--dim);margin-bottom:10px}
-.gauge-box{position:relative;width:280px;height:150px;margin:0 auto 10px}
-.gauge-box canvas{width:280px;height:150px;display:block}
+.gauge-box{position:relative;width:100%;max-width:280px;height:150px;margin:0 auto 10px}
+.gauge-box canvas{width:100%;height:100%;display:block}
 .gauge-val{font-family:"Instrument Serif",serif;font-size:42px;line-height:1;margin-top:-10px}
 .sub{font-size:14px;color:var(--ink);margin-top:12px;line-height:1.5;font-weight:300}
 .sub .split{display:block;margin-top:5px;color:var(--dim)}
 .sub .state{display:block;margin-top:6px;font-weight:400}
-.legend{display:flex;flex-wrap:wrap;gap:14px;margin:20px 0 10px; font-family:"DM Mono",monospace;font-size:10.5px;color:var(--dim);letter-spacing:.05em}
-.legend i{display:inline-block;width:16px;height:2px;vertical-align:middle; margin-right:6px;border-radius:2px}
+.legend{display:flex;flex-wrap:wrap;gap:12px;margin:20px 0 10px; font-family:"DM Mono",monospace;font-size:10px;color:var(--dim);letter-spacing:.03em}
+.legend i{display:inline-block;width:14px;height:2px;vertical-align:middle; margin-right:4px;border-radius:2px}
 .legend i.dash{background:none;border-top:2px dashed var(--dim);height:0}
-canvas#chart{width:100%;height:210px;display:block}
+canvas{width:100%!important;height:auto!important;display:block}
 .ranges{display:flex;margin-top:14px;background:var(--panel);border-radius:9px;padding:3px}
 .ranges button{flex:1;appearance:none;background:transparent;border:0;padding:10px 4px; cursor:pointer;border-radius:7px;font-family:"DM Mono",monospace;font-size:11px; color:var(--dim);letter-spacing:.05em}
 .ranges button[aria-pressed="true"]{background:var(--line);color:var(--ink)}
@@ -34,7 +34,7 @@ canvas#chart{width:100%;height:210px;display:block}
 .sect{margin-top:38px}
 .sect h2{font-family:"DM Mono",monospace;font-size:10.5px;font-weight:500; letter-spacing:.18em;text-transform:uppercase;color:var(--dim); margin:0 0 6px;padding-bottom:10px;border-bottom:1px solid var(--line)}
 .hint{font-size:13px;color:var(--dim);line-height:1.6;margin:12px 0 4px;font-weight:300}
-.stamp{font-family:"DM Mono",monospace;font-size:10.5px;letter-spacing:.04em; line-height:1.7;color:var(--faint);margin:10px 0 2px}
+.stamp{font-family:"DM Mono",monospace;font-size:10.5px;letter-spacing:.04em; line-height:1.7;color:var(--faint);margin:10px 0 2px;word-break:break-all}
 .stamp.stale{color:var(--fall)}
 .alert{margin-top:16px;padding:13px 14px;background:var(--panel); border-left:2px solid var(--fall);border-radius:0 8px 8px 0; font-size:13px;line-height:1.6;color:var(--dim)}
 .alert b{color:var(--ink);font-weight:400}
@@ -42,11 +42,10 @@ canvas#chart{width:100%;height:210px;display:block}
 .cfg label{display:block;font-size:13px;color:var(--dim);margin:16px 0 7px}
 .cfg input{width:100%;padding:13px 14px;background:var(--panel); border:1px solid var(--line);border-radius:8px;color:var(--ink); font-family:"DM Mono",monospace;font-size:13px}
 .cfg button{width:100%;margin-top:18px;padding:14px;background:var(--ink); color:var(--bg);border:0;border-radius:8px;cursor:pointer; font-family:"DM Mono",monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase}
-.foot{margin-top:34px;padding-top:16px;border-top:1px solid var(--line); font-family:"DM Mono",monospace;font-size:10px;color:var(--faint); line-height:2;letter-spacing:.04em}
+.foot{margin-top:34px;padding-top:16px;border-top:1px solid var(--line); font-family:"DM Mono",monospace;font-size:10px;color:var(--faint); line-height:2;letter-spacing:.04em;word-break:break-all}
 .load{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.16em; text-transform:uppercase;color:var(--faint);padding:36px 0}
 .stress-now{font-family:"Instrument Serif",serif;font-size:46px;line-height:1; font-variant-numeric:tabular-nums;margin:18px 0 6px}
 .stress-now small{font-family:"DM Mono",monospace;font-size:11px;color:var(--faint); letter-spacing:.08em;margin-left:8px}
-#stressChart, #moveChart{height:120px}
 </style>
 </head>
 <body>
@@ -393,59 +392,84 @@ function drawGauge(val){
   ctx.stroke();
 }
 
-function draw(){
-  const cv = document.getElementById("chart"); const dpr = window.devicePixelRatio || 1;
-  const W = cv.clientWidth, H = 210; cv.width = W*dpr; cv.height = H*dpr;
+function drawChart(canvasId, visData, valAccessor, hasBtcOverlay){
+  const cv = document.getElementById(canvasId); if(!cv || visData.length < 2) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth || 320, H = 210; 
+  cv.width = W * dpr; cv.height = H * dpr;
   const c = cv.getContext("2d"); c.setTransform(dpr,0,0,dpr,0,0); c.clearRect(0,0,W,H);
-  const vis = years ? rows.slice(-years*12) : rows; if(vis.length < 2) return;
 
-  const lv = vis.map(r=>r.combined).concat(vis.map(r=>r.ex).filter(v=>v!=null));
+  const lv = visData.map(valAccessor).filter(v=>v!=null);
+  if(!lv.length) return;
   let lo = Math.min(...lv,0), hi = Math.max(...lv,0);
   const lp = (hi-lo)*0.18 || 1; lo -= lp; hi += lp;
-  const bv = vis.map(r=>btcYoy(r.month)).filter(v=>v!=null); const hasB = bv.length > 2;
+
+  const bv = hasBtcOverlay ? visData.map(r=>btcYoy(r.month)).filter(v=>v!=null) : [];
+  const hasB = bv.length > 2;
   let blo=0, bhi=1;
   if(hasB){ blo = Math.min(...bv,0); bhi = Math.max(...bv,0); const bp = (bhi-blo)*0.14 || 1; blo -= bp; bhi += bp; }
 
-  const L = 40, R = W - (hasB ? 46 : 40), T = 14, B = H - 24;
-  const X = i => L + (i/(vis.length-1))*(R-L);
-  const Y = v => B - ((v-lo)/(hi-lo))*(B-T); const YB = v => B - ((v-blo)/(bhi-blo))*(B-T);
+  const L = 36, R = W - (hasB ? 42 : 12), T = 12, B = H - 22;
+  const X = i => L + (i/(visData.length-1))*(R-L);
+  const Y = v => B - ((v-lo)/(hi-lo))*(B-T); 
+  const YB = v => B - ((v-blo)/(bhi-blo))*(B-T);
 
-  c.font = "10px 'DM Mono', monospace"; c.textBaseline = "middle";
+  c.font = "9px 'DM Mono', monospace"; c.textBaseline = "middle";
   for(let i=0;i<=3;i++){
     const v = lo + (i/3)*(hi-lo), y = Y(v);
-    c.strokeStyle = "#E5E7EB"; c.lineWidth = 1; c.setLineDash([2,5]); c.beginPath(); c.moveTo(L,y); c.lineTo(R,y); c.stroke();
-    c.fillStyle = "#6B7280"; c.textAlign = "right"; c.fillText((v>=0?"+":"")+v.toFixed(1), L-8, y);
-    if(hasB){ const b = blo + (i/3)*(bhi-blo); c.fillStyle = "rgba(217,119,6,.85)"; c.textAlign = "left"; c.fillText((b>=0?"+":"")+b.toFixed(0), R+7, y); }
+    c.strokeStyle = "#E5E7EB"; c.lineWidth = 1; c.setLineDash([2,5]); 
+    c.beginPath(); c.moveTo(L,y); c.lineTo(R,y); c.stroke();
+    c.fillStyle = "#6B7280"; c.textAlign = "right"; c.fillText((v>=0?"+":"")+v.toFixed(1), L-4, y);
+    if(hasB){ 
+      const b = blo + (i/3)*(bhi-blo); 
+      c.fillStyle = "rgba(217,119,6,.85)"; c.textAlign = "left"; c.fillText((b>=0?"+":"")+b.toFixed(0), R+4, y); 
+    }
   }
   c.setLineDash([]);
-  if(lo < 0 && hi > 0){ const zy = Y(0); c.strokeStyle = "rgba(17,24,39,0.25)"; c.lineWidth = 1; c.beginPath(); c.moveTo(L,zy); c.lineTo(R,zy); c.stroke(); }
+  if(lo < 0 && hi > 0){ 
+    const zy = Y(0); c.strokeStyle = "rgba(17,24,39,0.25)"; c.lineWidth = 1; 
+    c.beginPath(); c.moveTo(L,zy); c.lineTo(R,zy); c.stroke(); 
+  }
   c.lineJoin = "round"; c.lineCap = "round";
 
   if(hasB){
     c.strokeStyle = "rgba(217,119,6,.9)"; c.lineWidth = 1.4; c.beginPath(); let on = false;
-    vis.forEach((r,i)=>{ const v = btcYoy(r.month); if(v == null){ on = false; return; } on ? c.lineTo(X(i),YB(v)) : (c.moveTo(X(i),YB(v)), on = true); });
+    visData.forEach((r,i)=>{ const v = btcYoy(r.month); if(v == null){ on = false; return; } on ? c.lineTo(X(i),YB(v)) : (c.moveTo(X(i),YB(v)), on = true); });
     c.stroke();
   }
 
-  c.strokeStyle = "rgba(107,114,128,.8)"; c.lineWidth = 1.5; c.setLineDash([4,4]);
-  c.beginPath(); let onEx = false;
-  vis.forEach((r,i)=>{ if(r.ex == null){ onEx = false; return; } onEx ? c.lineTo(X(i),Y(r.ex)) : (c.moveTo(X(i),Y(r.ex)), onEx = true); });
-  c.stroke(); c.setLineDash([]);
+  if(hasB && visData[0].ex !== undefined){
+    c.strokeStyle = "rgba(107,114,128,.8)"; c.lineWidth = 1.5; c.setLineDash([4,4]);
+    c.beginPath(); let onEx = false;
+    visData.forEach((r,i)=>{ if(r.ex == null){ onEx = false; return; } onEx ? c.lineTo(X(i),Y(r.ex)) : (c.moveTo(X(i),Y(r.ex)), onEx = true); });
+    c.stroke(); c.setLineDash([]);
+  }
 
-  c.lineWidth = 2.4; let prevValid = null;
-  vis.forEach((r,i)=>{
-    if (r.combined == null) { prevValid = null; return; }
-    if (prevValid != null) { c.beginPath(); c.moveTo(X(i-1), Y(vis[i-1].combined)); c.lineTo(X(i), Y(r.combined)); c.strokeStyle = r.color; c.stroke(); }
+  c.lineWidth = 2.2; let prevValid = null;
+  visData.forEach((r,i)=>{
+    const val = valAccessor(r);
+    if (val == null) { prevValid = null; return; }
+    if (prevValid != null) { 
+      c.beginPath(); c.moveTo(X(i-1), Y(valAccessor(visData[i-1]))); c.lineTo(X(i), Y(val)); 
+      c.strokeStyle = r.color || "#059669"; c.stroke(); 
+    }
     prevValid = r;
   });
 
-  const last = vis[vis.length-1]; c.fillStyle = last.color;
-  c.beginPath(); c.arc(X(vis.length-1), Y(last.combined), 4, 0, Math.PI*2); c.fill();
-  c.fillStyle = "#6B7280"; c.textBaseline = "top"; c.textAlign = "left"; c.fillText(vis[0].month, L, B+8); c.textAlign = "right"; c.fillText(last.month, R, B+8);
+  const lastValidIndex = visData.map(valAccessor).map((v,i)=>v!=null?i:-1).filter(i=>i!=-1).pop();
+  if(lastValidIndex !== undefined){
+    const lastR = visData[lastValidIndex];
+    c.fillStyle = lastR.color || "#059669";
+    c.beginPath(); c.arc(X(lastValidIndex), Y(valAccessor(lastR)), 3.5, 0, Math.PI*2); c.fill();
+  }
+
+  c.fillStyle = "#6B7280"; c.textBaseline = "top"; c.textAlign = "left"; c.fillText(visData[0].month, L, B+4); 
+  c.textAlign = "right"; c.fillText(visData[visData.length-1].month, R, B+4);
 }
 
-let stress = [];
+function draw(){ drawChart("chart", years ? rows.slice(-years*12) : rows, r => r.combined, true); }
 
+let stress = [];
 async function buildStress(){
   const raw = obs => { const m = new Map();
     for(const o of obs){ const v = parseFloat(o.value); if(isFinite(v)) m.set(o.date, v); } return m; };
@@ -454,84 +478,84 @@ async function buildStress(){
   const out = [];
   for(const [d, s] of sofr){
     const i = iorb.get(d);
-    if(i != null) out.push({date:d, bp:(s - i) * 100});
+    if(i != null) out.push({month: d, combined: (s - i) * 100, color: "#4B5563"});
   }
-  out.sort((a,b)=> a.date < b.date ? -1 : 1);
+  out.sort((a,b)=> a.month < b.month ? -1 : 1);
   return out.slice(-180);
 }
 
-function drawStress(){
+function drawStressChart(){
   const cv = document.getElementById("stressChart"); if(!cv || stress.length < 2) return;
   const dpr = window.devicePixelRatio || 1;
-  const W = cv.clientWidth, H = 120; cv.width = W*dpr; cv.height = H*dpr;
+  const W = cv.clientWidth || 320, H = 120; cv.width = W*dpr; cv.height = H*dpr;
   const c = cv.getContext("2d"); c.setTransform(dpr,0,0,dpr,0,0); c.clearRect(0,0,W,H);
 
-  const vals = stress.map(s=>s.bp);
+  const vals = stress.map(s=>s.combined);
   let lo = Math.min(...vals, 0), hi = Math.max(...vals, 0);
   const pad = (hi-lo)*0.2 || 1; lo -= pad; hi += pad;
-  const L = 40, R = W - 10, T = 10, B = H - 20;
+  const L = 36, R = W - 12, T = 8, B = H - 18;
   const X = i => L + (i/(stress.length-1))*(R-L);
   const Y = v => B - ((v-lo)/(hi-lo))*(B-T);
 
-  c.font = "10px 'DM Mono', monospace"; c.textBaseline = "middle"; c.textAlign = "right";
+  c.font = "9px 'DM Mono', monospace"; c.textBaseline = "middle"; c.textAlign = "right";
   for(let i=0;i<=2;i++){
     const v = lo + (i/2)*(hi-lo), y = Y(v);
     c.strokeStyle = "#E5E7EB"; c.lineWidth = 1; c.setLineDash([2,5]);
     c.beginPath(); c.moveTo(L,y); c.lineTo(R,y); c.stroke();
-    c.fillStyle = "#6B7280"; c.fillText((v>=0?"+":"")+v.toFixed(0), L-8, y);
+    c.fillStyle = "#6B7280"; c.fillText((v>=0?"+":"")+v.toFixed(0), L-4, y);
   }
   c.setLineDash([]);
   if(lo < 0 && hi > 0){
-    const zy = Y(0); c.strokeStyle = "rgba(17,24,39,0.25)"; c.lineWidth = 1;
+    const zy = Y(0); c.strokeStyle = "rgba(17,24,39,0.25"; c.lineWidth = 1;
     c.beginPath(); c.moveTo(L,zy); c.lineTo(R,zy); c.stroke();
   }
 
   c.strokeStyle = "#4B5563"; c.lineWidth = 1.8; c.lineJoin = "round"; c.lineCap = "round";
   c.beginPath();
-  stress.forEach((s,i)=> i ? c.lineTo(X(i),Y(s.bp)) : c.moveTo(X(i),Y(s.bp)));
+  stress.forEach((s,i)=> i ? c.lineTo(X(i),Y(s.combined)) : c.moveTo(X(i),Y(s.combined)));
   c.stroke();
 
   const lastS = stress[stress.length-1];
   c.fillStyle = "#111827";
-  c.beginPath(); c.arc(X(stress.length-1), Y(lastS.bp), 3.5, 0, Math.PI*2); c.fill();
+  c.beginPath(); c.arc(X(stress.length-1), Y(lastS.combined), 3.5, 0, Math.PI*2); c.fill();
 
   c.fillStyle = "#6B7280"; c.textBaseline = "top"; c.textAlign = "left";
-  c.fillText(stress[0].date, L, B+6);
-  c.textAlign = "right"; c.fillText(lastS.date, R, B+6);
+  c.fillText(stress[0].month, L, B+3);
+  c.textAlign = "right"; c.fillText(lastS.month, R, B+3);
 }
 
 function renderStress(){
   const lastS = stress[stress.length-1];
-  const bp = lastS.bp;
+  const bp = lastS.combined;
   const el = document.getElementById("stressNow");
-  el.innerHTML = `${bp>=0?"+":"−"}${Math.abs(bp).toFixed(1)}<small>BAZ PUAN · ${lastS.date}</small>`;
+  el.innerHTML = `${bp>=0?"+":"−"}${Math.abs(bp).toFixed(1)}<small>BAZ PUAN · ${lastS.month}</small>`;
   el.style.color = bp > 5 ? "var(--fall)" : (bp > 0 ? "var(--ink)" : "var(--rise)");
 
-  const win = stress.slice(-60).map(s=>s.bp);
+  const win = stress.slice(-60).map(s=>s.combined);
   const ort = win.reduce((a,b)=>a+b,0) / win.length;
   const yon = bp > ort + 1 ? "son 60 günün ortalamasının üzerinde" :
               bp < ort - 1 ? "son 60 günün ortalamasının altında" : "son 60 günün ortalamasına yakın";
   document.getElementById("stressNote").textContent =
     `60 günlük ortalama ${ort>=0?"+":"−"}${Math.abs(ort).toFixed(1)} bp. Güncel değer ${yon}.`;
-  drawStress();
+  drawStressChart();
 }
 
 let moveData = [];
 let moveSource = "";
 
 async function buildMove(){
-  const yUrls = [
-    "https://query1.finance.yahoo.com/v8/finance/chart/%5EMOVE?range=1y&interval=1d",
-    "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://query1.finance.yahoo.com/v8/finance/chart/%5EMOVE?range=1y&interval=1d")
+  const yUrl = "https://query1.finance.yahoo.com/v8/finance/chart/%5EMOVE?range=1y&interval=1d";
+  const routes = [
+    {name:"Proxy", url: viaProxy(yUrl)},
+    {name:"AllOrigins", url: "https://api.allorigins.win/raw?url=" + encodeURIComponent(yUrl)}
   ];
   const errs = [];
-  for(const u of yUrls){
+  for(const rt of routes){
     try{
-      const target = u.startsWith("http") && u.includes("query1") ? viaProxy(u) : u;
       const ctl = new AbortController();
       const t = setTimeout(()=>ctl.abort(), 12000);
       let r;
-      try{ r = await fetch(target, {signal: ctl.signal}); }
+      try{ r = await fetch(rt.url, {signal: ctl.signal}); }
       finally{ clearTimeout(t); }
       if(!r.ok) throw new Error("HTTP " + r.status);
       const j = await r.json();
@@ -543,7 +567,7 @@ async function buildMove(){
       for(let i=0; i<ts.length; i++){
         const v = closes[i];
         if(v != null && isFinite(v)){
-          out.push({date: new Date(ts[i]*1000).toISOString().slice(0,10), val: v});
+          out.push({month: new Date(ts[i]*1000).toISOString().slice(0,10), combined: v});
         }
       }
       if(out.length < 5) throw new Error("yetersiz veri");
@@ -553,25 +577,23 @@ async function buildMove(){
       errs.push(e.message);
     }
   }
-  
-  // Yedek simüle edilmiş statik hareket (Eğer proxy tamamen engelliyorsa uygulamanın çökmesini engeller)
-  throw new Error("Tüm yollar engellendi (" + errs.join(" · ") + ")");
+  throw new Error(errs.join(" · "));
 }
 
-function drawMove(){
+function drawMoveChart(){
   const cv = document.getElementById("moveChart"); if(!cv || moveData.length < 2) return;
   const dpr = window.devicePixelRatio || 1;
-  const W = cv.clientWidth, H = 120; cv.width = W*dpr; cv.height = H*dpr;
+  const W = cv.clientWidth || 320, H = 120; cv.width = W*dpr; cv.height = H*dpr;
   const c = cv.getContext("2d"); c.setTransform(dpr,0,0,dpr,0,0); c.clearRect(0,0,W,H);
 
-  const vals = moveData.map(m=>m.val);
+  const vals = moveData.map(m=>m.combined);
   let lo = Math.min(...vals, 75), hi = Math.max(...vals, 128);
   const pad = (hi-lo)*0.15 || 5; lo -= pad; hi += pad;
-  const L = 40, R = W - 10, T = 10, B = H - 20;
+  const L = 36, R = W - 12, T = 8, B = H - 18;
   const X = i => L + (i/(moveData.length-1))*(R-L);
   const Y = v => B - ((v-lo)/(hi-lo))*(B-T);
 
-  c.font = "10px 'DM Mono', monospace"; c.textBaseline = "middle"; c.textAlign = "right";
+  c.font = "9px 'DM Mono', monospace"; c.textBaseline = "middle"; c.textAlign = "right";
   
   [80, 100, 120].forEach(lvl => {
     if(lvl >= lo && lvl <= hi){
@@ -580,34 +602,34 @@ function drawMove(){
       c.lineWidth = 1; c.setLineDash([3,4]);
       c.beginPath(); c.moveTo(L,y); c.lineTo(R,y); c.stroke();
       c.fillStyle = lvl === 120 ? "#DC2626" : (lvl === 100 ? "#D97706" : "#6B7280");
-      c.fillText(lvl.toString(), L-8, y);
+      c.fillText(lvl.toString(), L-4, y);
     }
   });
   c.setLineDash([]);
 
   const lastM = moveData[moveData.length-1];
-  const strokeCol = lastM.val >= 120 ? "#DC2626" : (lastM.val >= 100 ? "#D97706" : "#059669");
+  const strokeCol = lastM.combined >= 120 ? "#DC2626" : (lastM.combined >= 100 ? "#D97706" : "#059669");
   c.strokeStyle = strokeCol; c.lineWidth = 1.8; c.lineJoin = "round"; c.lineCap = "round";
   c.beginPath();
-  moveData.forEach((m,i)=> i ? c.lineTo(X(i),Y(m.val)) : c.moveTo(X(i),Y(m.val)));
+  moveData.forEach((m,i)=> i ? c.lineTo(X(i),Y(m.combined)) : c.moveTo(X(i),Y(m.combined)));
   c.stroke();
 
   c.fillStyle = strokeCol;
-  c.beginPath(); c.arc(X(moveData.length-1), Y(lastM.val), 3.5, 0, Math.PI*2); c.fill();
+  c.beginPath(); c.arc(X(moveData.length-1), Y(lastM.combined), 3.5, 0, Math.PI*2); c.fill();
 
   c.fillStyle = "#6B7280"; c.textBaseline = "top"; c.textAlign = "left";
-  c.fillText(moveData[0].date, L, B+6);
-  c.textAlign = "right"; c.fillText(lastM.date, R, B+6);
+  c.fillText(moveData[0].month, L, B+3);
+  c.textAlign = "right"; c.fillText(lastM.month, R, B+3);
 }
 
 function renderMove(){
   const lastM = moveData[moveData.length-1];
-  const v = lastM.val;
+  const v = lastM.combined;
   const el = document.getElementById("moveNow");
-  el.innerHTML = `${v.toFixed(1)}<small>PUAN · ${lastM.date}</small>`;
+  el.innerHTML = `${v.toFixed(1)}<small>PUAN · ${lastM.month}</small>`;
   el.style.color = v >= 120 ? "var(--fall)" : (v >= 100 ? "var(--btc)" : "var(--rise)");
 
-  const win = moveData.slice(-60).map(m=>m.val);
+  const win = moveData.slice(-60).map(m=>m.combined);
   const ort = win.reduce((a,b)=>a+b,0) / win.length;
 
   let durum = `60g ortalama ${ort.toFixed(1)}. Tahvil oynaklığı sakin (<100); teminat çarpanı destekleyici.`;
@@ -617,7 +639,7 @@ function renderMove(){
   document.getElementById("moveNote").textContent = durum;
   const st = document.getElementById("moveStamp");
   if(st){ st.className = "stamp"; st.textContent = "MOVE kaynağı: " + moveSource + " · " + moveData.length + " işlem günü."; }
-  drawMove();
+  drawMoveChart();
 }
 
 function pct(v,d){ return (v>=0?"+":"−") + Math.abs(v).toFixed(d==null?1:d); }
@@ -656,9 +678,8 @@ async function load(){
       if(moveData.length > 1) renderMove(); 
     }catch(e){
       document.getElementById("moveNow").textContent = "104.5";
-      document.getElementById("moveNote").textContent = "Canlı MOVE verisi CORS engeline takıldı (Simüle ediliyor). Ayarlar kısmından kendi proxy adresinizi kontrol edin.";
-      // Hata durumunda paneli boş bırakmamak için varsayılan son 60 günlük ortalama simülasyon verisi basılır
-      moveData = Array.from({length:60}, (_,i)=>({date: "2026-10-" + String(i+1).padStart(2,"0"), val: 102 + Math.sin(i/5)*4}));
+      document.getElementById("moveNote").textContent = "Canlı MOVE verisi CORS engeline takıldı (Simüle ediliyor).";
+      moveData = Array.from({length:60}, (_,i)=>({month: "2026-10-" + String(i+1).padStart(2,"0"), combined: 102 + Math.sin(i/5)*4}));
       renderMove();
     }
     try{
@@ -680,7 +701,7 @@ document.querySelectorAll(".ranges button").forEach(b=>{
   b.onclick = ()=>{ document.querySelectorAll(".ranges button").forEach(x=>x.setAttribute("aria-pressed","false")); b.setAttribute("aria-pressed","true"); years = +b.dataset.years; draw(); };
 });
 
-let rt; addEventListener("resize", ()=>{ clearTimeout(rt); rt = setTimeout(()=>{ draw(); drawStress(); drawMove(); render(); },150); });
+let rt; addEventListener("resize", ()=>{ clearTimeout(rt); rt = setTimeout(()=>{ draw(); drawStressChart(); drawMoveChart(); render(); },150); });
 
 (function(){
   document.getElementById("cfgKey").value = fredKey(); document.getElementById("cfgPx").value = readStore(PX_NAMES);
