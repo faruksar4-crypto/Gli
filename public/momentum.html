@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Likidite Momentum İndeksi</title>
+<title>Küresel Likidite İndeksi</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Sora:wght@300;400;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -15,18 +15,18 @@ body{ background:var(--bg); color:var(--ink); font-family:"Sora",system-ui,sans-
 .mast{display:flex;justify-content:space-between;align-items:baseline; padding:24px 0 16px;border-bottom:1px solid var(--line)}
 .mast .name{font-family:"DM Mono",monospace;font-size:11px; letter-spacing:.18em;text-transform:uppercase;color:var(--dim)}
 .mast .date{font-family:"DM Mono",monospace;font-size:11px;color:var(--faint)}
-.hero{padding:34px 0 30px}
-.kicker{font-family:"DM Mono",monospace;font-size:10.5px;letter-spacing:.16em; text-transform:uppercase;color:var(--dim);margin-bottom:14px}
-.big{font-family:"Instrument Serif",serif;font-weight:400; font-size:clamp(72px,24vw,124px);line-height:.84;letter-spacing:-.015em; font-variant-numeric:tabular-nums}
-.big.rise{color:var(--rise)} .big.fall{color:var(--fall)}
-.sub{font-size:15px;color:var(--ink);margin-top:18px;line-height:1.5;font-weight:300}
-.sub .split{display:block;margin-top:7px;color:var(--dim)}
-.sub .state{display:block;margin-top:10px}
-.sub .unconfirmed{color:var(--dim)}
-.legend{display:flex;flex-wrap:wrap;gap:14px;margin:26px 0 10px; font-family:"DM Mono",monospace;font-size:10.5px;color:var(--dim);letter-spacing:.05em}
+.hero{padding:24px 0 20px;text-align:center}
+.kicker{font-family:"DM Mono",monospace;font-size:10.5px;letter-spacing:.16em; text-transform:uppercase;color:var(--dim);margin-bottom:10px}
+.gauge-box{position:relative;width:280px;height:150px;margin:0 auto 10px}
+.gauge-box canvas{width:280px;height:150px;display:block}
+.gauge-val{font-family:"Instrument Serif",serif;font-size:42px;line-height:1;margin-top:-10px}
+.sub{font-size:14px;color:var(--ink);margin-top:12px;line-height:1.5;font-weight:300}
+.sub .split{display:block;margin-top:5px;color:var(--dim)}
+.sub .state{display:block;margin-top:6px;font-weight:400}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin:20px 0 10px; font-family:"DM Mono",monospace;font-size:10.5px;color:var(--dim);letter-spacing:.05em}
 .legend i{display:inline-block;width:16px;height:2px;vertical-align:middle; margin-right:6px;border-radius:2px}
 .legend i.dash{background:none;border-top:2px dashed var(--dim);height:0}
-canvas{width:100%;height:210px;display:block}
+canvas#chart{width:100%;height:210px;display:block}
 .ranges{display:flex;margin-top:14px;background:var(--panel);border-radius:9px;padding:3px}
 .ranges button{flex:1;appearance:none;background:transparent;border:0;padding:10px 4px; cursor:pointer;border-radius:7px;font-family:"DM Mono",monospace;font-size:11px; color:var(--dim);letter-spacing:.05em}
 .ranges button[aria-pressed="true"]{background:var(--line);color:var(--ink)}
@@ -59,17 +59,21 @@ canvas{width:100%;height:210px;display:block}
 </head>
 <body>
 <div class="wrap">
-  <header class="mast"><span class="name">Likidite İvme İndeksi</span><span class="date" id="asOf">—</span></header>
+  <header class="mast"><span class="name">Küresel Likidite İndeksi</span><span class="date" id="asOf">—</span></header>
+  
   <section class="hero">
-    <div class="kicker">Kadran 1 · 3 Aylık Momentum (M) · Net CB Likiditesi</div>
-    <div class="big" id="big">—</div>
+    <div class="kicker">Kadran 1 · Net CB Likiditesi (Yıllık % Değişim)</div>
+    <div class="gauge-box">
+      <canvas id="gaugeCanvas" width="560" height="300"></canvas>
+    </div>
+    <div class="gauge-val" id="gaugeVal">—</div>
     <div class="sub" id="sub"><em>hesaplanıyor</em></div>
   </section>
+
   <section>
     <div class="legend" id="legend">
-      <span><i style="background:linear-gradient(90deg,#E0705A,#5FBFA0)"></i>Momentum · renk yoğunluğu = Z-Skor</span>
-      <span><i class="dash"></i>PBoC hariç momentum</span>
-      <span><i style="background:#5A6B77"></i>Z-Skor ısınıyor</span>
+      <span><i style="background:linear-gradient(90deg,#E0705A,#5FBFA0)"></i>Birleşik YoY %</span>
+      <span><i class="dash"></i>PBoC hariç YoY %</span>
       <span><i style="background:#E8A33D"></i>BTC YoY %</span>
     </div>
     <canvas id="chart" width="1000" height="420"></canvas>
@@ -100,19 +104,6 @@ canvas{width:100%;height:210px;display:block}
   </section>
 
   <section class="sect">
-    <h2>Öncülük Testi · PBoC Hariç Momentum → BTC</h2>
-    <div class="hint">Likidite momentumu ile <b>sonraki</b> aylardaki BTC YoY arasındaki Pearson korelasyonu. Howell'ın varsayımı doğruysa en yüksek değer 3 ay civarında çıkmalı; 0'da çıkarsa öncülük değil eşzamanlılık, dağınıksa bu veride öncülük yok demektir. Ağırlıklı bileşik Fed'i ECB ve BoJ ile seyreltir — tek tek de sınayabilirsin.</div>
-    <div class="ranges" role="group" id="lagPick">
-      <button data-series="ex" aria-pressed="true">PBoC hariç</button>
-      <button data-series="combined">Birleşik</button>
-      <button data-series="fed">Fed</button>
-      <button data-series="pboc">PBoC</button>
-    </div>
-    <div id="lagRows"><div class="load">BTC verisi bekleniyor</div></div>
-    <div class="stamp" id="lagNote"></div>
-  </section>
-
-  <section class="sect">
     <h2>Net Merkez Bankası Dağılımı</h2>
     <div class="hint">YoY değişimler <b>kendi para biriminde</b> hesaplanır. Fed netleştirilmiştir (WALCL eksi TGA/RRP). RRP ve TGA oynaklığı önlemek için aylık ortalama alınır. Ağırlıklar USD bilanço büyüklüğüne göredir; <b>Fed ile ECB'nin ağırlıkları elle takas edilmiştir</b>.</div>
     <div class="stamp" id="pbocStamp"></div>
@@ -131,10 +122,8 @@ canvas{width:100%;height:210px;display:block}
     FRED · WALCL, WTREGEN, RRPONTSYD, ECBASSETSW, JPNASSETS, SOFR, IORB<br>
     Yahoo Finance · ^MOVE (ICE BofA US Bond Market Option Volatility Estimate)<br>
     PBoC · gömülü seri, resmi bilanço tabloları (2019-01 →)<br>
-    Momentum 2020-04'te başlar. Z-Skor 36 aylık pencere (min 18 gözlem); ilk aylar gri çizilir.<br>
     PBoC hariç seri, kalan bankaların ağırlıkları yeniden normalize edilerek hesaplanır.<br>
     Fed–ECB ağırlık takası açık (SWAP_FED_ECB). Elle verilmiş tercih, veriden türemez.<br>
-    Yön ancak momentum 3 ay üst üste aynı tarafa gittiğinde teyitli sayılır.<br>
     Üç kadran ayrı ölçer, toplanmaz. Aynı yönü göstermeleri teyit, ayrışmaları soru işaretidir.
   </footer>
 </div>
@@ -206,16 +195,6 @@ function getSMA(arr, win, min) {
         let sum = 0, cnt = 0;
         for (let j = Math.max(0, i - win + 1); j <= i; j++) if (a[j] != null && !isNaN(a[j])) { sum += a[j]; cnt++; }
         return cnt >= min ? sum / cnt : null;
-    });
-}
-function getDiff(arr, lag) { return arr.map((v, i, a) => (i >= lag && v != null && a[i-lag] != null) ? v - a[i-lag] : null); }
-function getStd(arr, win, min) {
-    const sma = getSMA(arr, win, min);
-    return arr.map((v, i, a) => {
-        if (sma[i] == null) return null;
-        let sumSq = 0, cnt = 0;
-        for (let j = Math.max(0, i - win + 1); j <= i; j++) if (a[j] != null && !isNaN(a[j])) { sumSq += Math.pow(a[j] - sma[i], 2); cnt++; }
-        return (cnt >= min && cnt > 1) ? Math.sqrt(sumSq / (cnt - 1)) : null;
     });
 }
 
@@ -316,8 +295,6 @@ async function build(){
 
   const months = [...nat.fed.keys()].sort();
 
-  /* PBoC gömülü serisi geride kaldığında endeksin donmasını önlemek için
-     eksik güncel aylara son bilinen PBoC değerini taşır (carry-forward). */
   const pbocLastEntry = PBOC.data[PBOC.data.length - 1];
   for (const m of months) {
     if (m > pbocLastEntry[0] && !nat.pboc.has(m)) {
@@ -358,34 +335,18 @@ async function build(){
     return { val: yoySum, ex: exSum, totalUsd, items: keys.map(k=>({k, yoy:d.yoy[k], w:usdSeries[k][i]/totalUsd})) };
   });
 
-  const yoyVals = gli_yoy.map(y => y ? y.val : null);
-  const exVals  = gli_yoy.map(y => y ? y.ex  : null);
-  const m_vals = getDiff(yoyVals, 3);
-  const mEx    = getDiff(exVals, 3);
-
-  const bankM = {};
-  keys.forEach(k => { bankM[k] = getDiff(data.map(d => d.yoy[k] != null ? d.yoy[k] : null), 3); });
-
-  const m_sma = getSMA(m_vals, 36, 18);
-  const m_std = getStd(m_vals, 36, 18);
-  const z_36 = m_vals.map((v, i) =>
-    (v == null || m_sma[i] == null || m_std[i] == null || m_std[i] === 0)
-      ? null : (v - m_sma[i]) / m_std[i]);
-
-  const colors = z_36.map(z => {
-    if (z == null) return "rgba(90, 107, 119, 0.55)";
-    const capped = Math.max(-2, Math.min(2, z));
-    const a = (0.35 + 0.65 * Math.abs(capped) / 2).toFixed(3);
-    return z > 0 ? `rgba(95,191,160,${a})` : `rgba(224,112,90,${a})`;
-  });
-
   const out = [];
   for (let i = 0; i < data.length; i++) {
-    if (gli_yoy[i] != null && m_vals[i] != null) {
-      out.push({ month: data[i].month, combined: gli_yoy[i].val, ex: gli_yoy[i].ex,
-                 m: m_vals[i], mEx: mEx[i], usdTotal: gli_yoy[i].totalUsd,
-                 mBank: Object.fromEntries(keys.map(k => [k, bankM[k][i]])),
-                 items: gli_yoy[i].items, z: z_36[i], color: colors[i] });
+    if (gli_yoy[i] != null) {
+      const val = gli_yoy[i].val;
+      out.push({
+        month: data[i].month,
+        combined: val,
+        ex: gli_yoy[i].ex,
+        usdTotal: gli_yoy[i].totalUsd,
+        items: gli_yoy[i].items,
+        color: val >= 0 ? "#5FBFA0" : "#E0705A"
+      });
     }
   }
   return out;
@@ -398,12 +359,59 @@ function btcYoy(month){
   if(a == null || b == null || b === 0) return null; return (a/b - 1) * 100;
 }
 
-function trendDir(){
-  const t = rows.slice(-3).map(r => r.m);
-  if (t.length < 3 || t.some(v => v == null)) return 0;
-  if (t[0] < t[1] && t[1] < t[2]) return 1;
-  if (t[0] > t[1] && t[1] > t[2]) return -1;
-  return 0;
+/* ── Hız Göstergesi (Gauge) Çizim Motoru ── */
+function drawGauge(val){
+  const cv = document.getElementById("gaugeCanvas"); if(!cv) return;
+  const ctx = cv.getContext("2d");
+  const W = cv.width, H = cv.height;
+  ctx.clearRect(0,0,W,H);
+
+  const cx = W / 2;
+  const cy = H - 25;
+  const r = 110;
+  const thickness = 22;
+
+  const segments = [
+    {start: Math.PI, end: Math.PI + Math.PI*0.2, color: "#E0705A"}, // Kırmızı (Negatif / Daralma)
+    {start: Math.PI + Math.PI*0.2, end: Math.PI + Math.PI*0.4, color: "#E8923D"}, // Turuncu
+    {start: Math.PI + Math.PI*0.4, end: Math.PI + Math.PI*0.6, color: "#E8C83D"}, // Sarı (Nötr)
+    {start: Math.PI + Math.PI*0.6, end: Math.PI + Math.PI*0.8, color: "#85D4B2"}, // Açık Yeşil
+    {start: Math.PI + Math.PI*0.8, end: Math.PI * 2, color: "#5FBFA0"} // Koyu Yeşil (Pozitif / Genişleme)
+  ];
+
+  segments.forEach(seg => {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, seg.start, seg.end);
+    ctx.lineWidth = thickness;
+    ctx.strokeStyle = seg.color;
+    ctx.stroke();
+  });
+
+  const minV = -10, maxV = 15;
+  const clamped = Math.max(minV, Math.min(maxV, val));
+  const ratio = (clamped - minV) / (maxV - minV);
+  const needleAngle = Math.PI + ratio * Math.PI;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(needleAngle);
+
+  ctx.beginPath();
+  ctx.moveTo(0, -6);
+  ctx.lineTo(r - 12, 0);
+  ctx.lineTo(0, 6);
+  ctx.fillStyle = "#EAE4D9";
+  ctx.fill();
+
+  ctx.restore();
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, 10, 0, Math.PI * 2);
+  ctx.fillStyle = "#16242F";
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = "#EAE4D9";
+  ctx.stroke();
 }
 
 function draw(){
@@ -412,7 +420,7 @@ function draw(){
   const c = cv.getContext("2d"); c.setTransform(dpr,0,0,dpr,0,0); c.clearRect(0,0,W,H);
   const vis = years ? rows.slice(-years*12) : rows; if(vis.length < 2) return;
 
-  const lv = vis.map(r=>r.m).concat(vis.map(r=>r.mEx).filter(v=>v!=null));
+  const lv = vis.map(r=>r.combined).concat(vis.map(r=>r.ex).filter(v=>v!=null));
   let lo = Math.min(...lv,0), hi = Math.max(...lv,0);
   const lp = (hi-lo)*0.18 || 1; lo -= lp; hi += lp;
   const bv = vis.map(r=>btcYoy(r.month)).filter(v=>v!=null); const hasB = bv.length > 2;
@@ -427,7 +435,7 @@ function draw(){
   for(let i=0;i<=3;i++){
     const v = lo + (i/3)*(hi-lo), y = Y(v);
     c.strokeStyle = "#233440"; c.lineWidth = 1; c.setLineDash([2,5]); c.beginPath(); c.moveTo(L,y); c.lineTo(R,y); c.stroke();
-    c.fillStyle = "#5A6B77"; c.textAlign = "right"; c.fillText((v>=0?"+":"")+v.toFixed(2), L-8, y);
+    c.fillStyle = "#5A6B77"; c.textAlign = "right"; c.fillText((v>=0?"+":"")+v.toFixed(1), L-8, y);
     if(hasB){ const b = blo + (i/3)*(bhi-blo); c.fillStyle = "rgba(232,163,61,.75)"; c.textAlign = "left"; c.fillText((b>=0?"+":"")+b.toFixed(0), R+7, y); }
   }
   c.setLineDash([]);
@@ -442,18 +450,18 @@ function draw(){
 
   c.strokeStyle = "rgba(138,154,165,.8)"; c.lineWidth = 1.5; c.setLineDash([4,4]);
   c.beginPath(); let onEx = false;
-  vis.forEach((r,i)=>{ if(r.mEx == null){ onEx = false; return; } onEx ? c.lineTo(X(i),Y(r.mEx)) : (c.moveTo(X(i),Y(r.mEx)), onEx = true); });
+  vis.forEach((r,i)=>{ if(r.ex == null){ onEx = false; return; } onEx ? c.lineTo(X(i),Y(r.ex)) : (c.moveTo(X(i),Y(r.ex)), onEx = true); });
   c.stroke(); c.setLineDash([]);
 
   c.lineWidth = 2.4; let prevValid = null;
   vis.forEach((r,i)=>{
-    if (r.m == null) { prevValid = null; return; }
-    if (prevValid != null) { c.beginPath(); c.moveTo(X(i-1), Y(vis[i-1].m)); c.lineTo(X(i), Y(r.m)); c.strokeStyle = r.color; c.stroke(); }
+    if (r.combined == null) { prevValid = null; return; }
+    if (prevValid != null) { c.beginPath(); c.moveTo(X(i-1), Y(vis[i-1].combined)); c.lineTo(X(i), Y(r.combined)); c.strokeStyle = r.color; c.stroke(); }
     prevValid = r;
   });
 
   const last = vis[vis.length-1]; c.fillStyle = last.color;
-  c.beginPath(); c.arc(X(vis.length-1), Y(last.m), 4, 0, Math.PI*2); c.fill();
+  c.beginPath(); c.arc(X(vis.length-1), Y(last.combined), 4, 0, Math.PI*2); c.fill();
   c.fillStyle = "#5A6B77"; c.textBaseline = "top"; c.textAlign = "left"; c.fillText(vis[0].month, L, B+8); c.textAlign = "right"; c.fillText(last.month, R, B+8);
 }
 
@@ -626,8 +634,8 @@ function renderMove(){
   const ort = win.reduce((a,b)=>a+b,0) / win.length;
 
   let durum = `60g ortalama ${ort.toFixed(1)}. Tahvil oynaklığı sakin (<100); teminat çarpanı destekleyici.`;
-  if(v >= 120) durum = `60g ortalama ${ort.toFixed(1)}. Tehlike eşiği (>120) aşıldı! Repo piyasasında teminat kesintileri (haircut) ve likidite daralması riski yüksek.`;
-  else if(v >= 100) durum = `60g ortalama ${ort.toFixed(1)}. Uyarı bölgesinde (100–120). Oynaklık yüksek; teminat kesintileri gecikmeli olarak sıkılaşabilir.`;
+  if(v >= 120) durum = `60g ortalama ${ort.toFixed(1)}. Tehlike eşiği (>120) aşıldı! Repo piyasasında teminat kesintileri (haircut) ve likidite daralması riski yüksek[span_1](start_span)[span_1](end_span).`;
+  else if(v >= 100) durum = `60g ortalama ${ort.toFixed(1)}. Uyarı bölgesinde (100–120). Oynaklık yüksek; teminat kesintileri gecikmeli olarak sıkılaşabilir[span_2](start_span)[span_2](end_span).`;
 
   document.getElementById("moveNote").textContent = durum;
   const st = document.getElementById("moveStamp");
@@ -636,116 +644,6 @@ function renderMove(){
 }
 
 function pct(v,d){ return (v>=0?"+":"−") + Math.abs(v).toFixed(d==null?1:d); }
-
-/* ── Öncülük testi: PBoC hariç momentum (t) → BTC YoY (t+gecikme) ── */
-function pearson(xs, ys){
-  const n = xs.length; if(n < 3) return null;
-  let sx=0, sy=0;
-  for(let i=0;i<n;i++){ sx+=xs[i]; sy+=ys[i]; }
-  const mx=sx/n, my=sy/n;
-  let num=0, dx=0, dy=0;
-  for(let i=0;i<n;i++){
-    const a=xs[i]-mx, b=ys[i]-my;
-    num+=a*b; dx+=a*a; dy+=b*b;
-  }
-  if(dx===0 || dy===0) return null;
-  return num / Math.sqrt(dx*dy);
-}
-
-const MIN_OVERLAP = 24;
-const MIN_HALF = 18;
-const MAX_LAG = 12;
-
-const LAG_SERIES = {
-  ex:       {label:"PBoC hariç", pick: r => r.mEx},
-  combined: {label:"Birleşik",   pick: r => r.m},
-  fed:      {label:"Sadece Fed", pick: r => r.mBank ? r.mBank.fed : null},
-  pboc:     {label:"Sadece PBoC",pick: r => r.mBank ? r.mBank.pboc : null}
-};
-let lagSeries = "ex";
-
-function lagTable(){
-  const pick = LAG_SERIES[lagSeries].pick;
-  const mid = Math.floor(rows.length / 2);
-  const out = [];
-  for(let lag=0; lag<=MAX_LAG; lag++){
-    const xs=[], ys=[], x1=[], y1=[], x2=[], y2=[];
-    for(let i=0;i<rows.length;i++){
-      const j=i+lag; if(j>=rows.length) break;
-      const x=pick(rows[i]), y=btcYoy(rows[j].month);
-      if(x==null || y==null || !isFinite(x) || !isFinite(y)) continue;
-      xs.push(x); ys.push(y);
-      if(i < mid){ x1.push(x); y1.push(y); } else { x2.push(x); y2.push(y); }
-    }
-    out.push({
-      lag, n: xs.length,
-      r:  xs.length >= MIN_OVERLAP ? pearson(xs,ys) : null,
-      r1: x1.length >= MIN_HALF   ? pearson(x1,y1) : null,
-      r2: x2.length >= MIN_HALF   ? pearson(x2,y2) : null
-    });
-  }
-  return out;
-}
-
-function bestOf(tbl, field){
-  const usable = tbl.filter(t => t[field] != null);
-  if(!usable.length) return null;
-  let b = usable[0];
-  usable.forEach(t => { if(Math.abs(t[field]) > Math.abs(b[field])) b = t; });
-  return b;
-}
-
-function renderLags(){
-  const el = document.getElementById("lagRows");
-  const note = document.getElementById("lagNote");
-  if(!btcMap){
-    el.innerHTML = '<div class="load">BTC verisi yok</div>';
-    note.className = "stamp"; note.textContent = "";
-    return;
-  }
-  const tbl = lagTable();
-  const best = bestOf(tbl, "r");
-  if(!best){
-    el.innerHTML = '<div class="load">Yeterli ortak ay yok</div>';
-    note.className = "stamp";
-    note.textContent = "Korelasyon için en az " + MIN_OVERLAP + " ortak ay gerekiyor.";
-    return;
-  }
-  const b1 = bestOf(tbl, "r1"), b2 = bestOf(tbl, "r2");
-
-  const halves = t => {
-    const f = v => v == null ? "—" : pct(v,2);
-    return "yarılar " + f(t.r1) + " / " + f(t.r2);
-  };
-
-  el.innerHTML = tbl.map(t=>{
-    const isBest = t.r != null && t.lag === best.lag;
-    const w = t.r != null ? Math.abs(t.r)*100 : 0;
-    const val = t.r != null ? pct(t.r,2) : "—";
-    const cls = t.r == null ? "" : (t.r >= 0 ? "rise" : "fall");
-    return '<div class="row"><span class="who">' + t.lag + ' ay gecikme' +
-      '<span class="meta">n = ' + t.n + ' · ' + halves(t) + (isBest ? ' · en güçlü' : '') + '</span>' +
-      '<span class="wbar"><div style="width:' + w.toFixed(1) + '%"></div></span></span>' +
-      '<span class="val ' + cls + '">' + val + '<small>r</small></span></div>';
-  }).join("");
-
-  let verdict;
-  if(b1 == null || b2 == null){
-    verdict = "Yarılardan biri için yeterli gözlem yok, bölünmüş test yapılamadı.";
-  } else if(b1.lag === b2.lag){
-    verdict = "Tepe iki yarıda da " + b1.lag + " ayda — yapı örneklem boyunca duruyor.";
-  } else {
-    verdict = "Tepe ilk yarıda " + b1.lag + " ay, ikinci yarıda " + b2.lag +
-              " ay — yer değiştiriyor, sabit bir gecikme yok.";
-  }
-
-  const atEdge = best.lag === MAX_LAG;
-  note.className = "stamp";
-  note.textContent = "En güçlü ilişki " + best.lag + " ay gecikmede (r = " + pct(best.r,2) + "). " +
-    verdict + " " + (atEdge ? "Tepe test aralığının kenarında — gerçek tepe daha ileride olabilir. " : "") +
-    "YoY serileri örtüşen pencereler kullandığı için ardışık gözlemler bağımsız değil; " +
-    "r değerleri gerçekte olduğundan güçlü görünür. Yön göstergesi olarak okunmalı, kanıt olarak değil.";
-}
 
 function renderPbocStamp(indexMonth){
   const pbocLast = PBOC.data[PBOC.data.length-1][0];
@@ -761,30 +659,23 @@ function renderPbocStamp(indexMonth){
 }
 
 function render(){
-  const last = rows[rows.length-1]; const up = last.m >= 0;
+  const last = rows[rows.length-1]; const up = last.combined >= 0;
   document.getElementById("asOf").textContent = last.month;
-  const big = document.getElementById("big"); big.innerHTML = pct(last.m, 2);
-  big.className = "big " + (up ? "rise" : "fall"); big.style.color = last.color;
+  
+  drawGauge(last.combined);
+  
+  const valEl = document.getElementById("gaugeVal");
+  valEl.innerHTML = `${pct(last.combined, 2)}%`;
+  valEl.style.color = up ? "var(--rise)" : "var(--fall)";
 
-  const zTxt = last.z != null ? `Z-Skor ${pct(last.z, 2)}` : "Z-Skor ısınıyor";
-
-  const dir = trendDir();
-  let durum;
-  if (dir === 0) {
-    durum = `<span class="unconfirmed">Yön teyitsiz — momentum 3 ay üst üste aynı tarafa gitmedi.</span>`;
-  } else {
-    const rising = dir === 1;
-    durum = last.combined >= 0
-      ? (rising ? "Genişleme hızlanıyor." : "Genişleme yavaşlıyor.")
-      : (rising ? "Daralma yavaşlıyor." : "Daralma hızlanıyor.");
-  }
+  const durum = up ? "Yıllık bazda net merkez bankası likiditesi genişliyor (Olumlu)." : "Yıllık bazda net merkez bankası likiditesi daralıyor (Olumsuz).";
 
   const splitTxt = last.ex != null
     ? `<span class="split">PBoC hariç <b>${pct(last.ex, 2)}%</b> · PBoC katkısı ${pct(last.combined - last.ex, 2)} puan</span>`
     : "";
 
   document.getElementById("sub").innerHTML =
-    `Birleşik YoY <b>${pct(last.combined, 2)}%</b> · ${zTxt}${splitTxt}<span class="state">${durum}</span>`;
+    `Toplam Bilanço (12a Ort.) <b>$${last.usdTotal.toFixed(1)}T</b>${splitTxt}<span class="state" style="color:${up ? 'var(--rise)' : 'var(--fall)'}">${durum}</span>`;
 
   renderPbocStamp(last.month);
 
@@ -814,11 +705,9 @@ async function load(){
       btcMap = b.map; draw();
       const n = document.getElementById("btcNote");
       if(n){ n.className = "stamp"; n.textContent = "BTC kaynağı: " + b.source + " · " + b.map.size + " ay."; }
-      renderLags();
     }catch(e){
       const n = document.getElementById("btcNote");
       if(n){ n.className = "stamp stale"; n.textContent = "BTC verisi alınamadı — " + e.message; }
-      renderLags();
     }
   }catch(e){
     document.getElementById("big").textContent = "—"; document.getElementById("sub").innerHTML = "<em>veri yok</em>";
@@ -829,16 +718,8 @@ async function load(){
 document.querySelectorAll(".ranges button").forEach(b=>{
   b.onclick = ()=>{ document.querySelectorAll(".ranges button").forEach(x=>x.setAttribute("aria-pressed","false")); b.setAttribute("aria-pressed","true"); years = +b.dataset.years; draw(); };
 });
-document.querySelectorAll("#lagPick button").forEach(b=>{
-  b.onclick = ()=>{
-    document.querySelectorAll("#lagPick button").forEach(x=>x.setAttribute("aria-pressed","false"));
-    b.setAttribute("aria-pressed","true");
-    lagSeries = b.dataset.series;
-    renderLags();
-  };
-});
 
-let rt; addEventListener("resize", ()=>{ clearTimeout(rt); rt = setTimeout(()=>{ draw(); drawStress(); drawMove(); },150); });
+let rt; addEventListener("resize", ()=>{ clearTimeout(rt); rt = setTimeout(()=>{ draw(); drawStress(); drawMove(); render(); },150); });
 
 (function(){
   document.getElementById("cfgKey").value = fredKey(); document.getElementById("cfgPx").value = readStore(PX_NAMES);
@@ -846,47 +727,6 @@ let rt; addEventListener("resize", ()=>{ clearTimeout(rt); rt = setTimeout(()=>{
 })();
 
 if(!fredKey()){ document.getElementById("sub").innerHTML = "<em>anahtar gerekli</em>"; document.getElementById("rows").innerHTML = ""; } else load();
-</script>
-
-<script>
-/* ── Tanılama: kod hatalarını ve bağlantı sorunlarını ekrana yazar ──
-   Sorun çözüldükten sonra bu bloğun tamamı silinebilir. */
-window.onerror = function(msg, src, line){
-  var a = document.getElementById("alerts");
-  if(a) a.innerHTML = '<div class="alert"><b>Kod hatası</b> ' + msg + ' · satır ' + line + '</div>';
-};
-
-(function(){
-  var box = document.createElement("section");
-  box.className = "sect";
-  box.innerHTML =
-    '<h2>Bağlantı Testi</h2>' +
-    '<button id="tBtn" style="width:100%;margin-top:14px;padding:14px;background:var(--ink);' +
-    'color:var(--bg);border:0;border-radius:8px;cursor:pointer;font-family:\'DM Mono\',monospace;' +
-    'font-size:12px;letter-spacing:.12em;text-transform:uppercase">Bağlantıyı test et</button>' +
-    '<div class="hint" id="tOut" style="white-space:pre-wrap;word-break:break-all"></div>';
-  document.querySelector(".wrap").appendChild(box);
-
-  document.getElementById("tBtn").onclick = async function(){
-    var out = document.getElementById("tOut");
-    out.textContent = "Deneniyor…";
-    var url = fredUrl("WALCL");
-    var safe = url.replace(/api_key=[^&]*/, "api_key=***");
-    var head = "Adres: " + safe + "\n\nAnahtar girili mi: " + (fredKey() ? "evet" : "HAYIR") +
-               "\nProxy: " + proxyBase() + "\n";
-    try{
-      var ctl = new AbortController();
-      var t = setTimeout(function(){ ctl.abort(); }, 20000);
-      var r = await fetch(url, {signal: ctl.signal});
-      clearTimeout(t);
-      var txt = await r.text();
-      out.textContent = head + "HTTP: " + r.status + "\n\nYanıt (ilk 400 karakter):\n" + txt.slice(0, 400);
-    }catch(e){
-      out.textContent = head + "\nBAĞLANTI KURULAMADI\n" +
-        (e.name === "AbortError" ? "20 saniyede yanıt gelmedi" : e.message);
-    }
-  };
-})();
 </script>
 </body>
 </html>
